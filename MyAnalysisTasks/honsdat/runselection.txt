@@ -1,0 +1,29 @@
+Opted for run: https://alimonitor.cern.ch/job_events.jsp?timesel=0&owner=aliprod&filter_run=559408:559456&filter_jobtype=pp%2C+5.36+TeV+-+General-purpose+MC+production+anchored+to+apass1+of+pp+ref+2024+data%2C+fix+for+EMC%2C+LHC24aq+%28B--%29%2C+O2-5670
+
+5.36 general purpose anchored to 2024, has enough data available
+
+THIS HAS NOT WORKED AT ALL REEE, can't read from grid alien_ls doesn't list the ao2d files, alien.py and cd'ing around does let you spot the files
+Ok lets try another one with the completed flag then alien.py does see the files
+
+Opting for another run with a completed flag:
+https://alimonitor.cern.ch/job_events.jsp?timesel=0&owner=aliprod&filter_run=535069:536106&filter_jobtype=pp%2C+13.6+TeV+-+General+purpose+MC+anchored+to+pp+2023+apass4+for+MFT+studies%2C+O2-5804
+to compare the above issues with.
+We......
+
+THE DIRECTORY IN THE ao2d.collections.xml is not the same as the desired ones..... it's /number/number/whatever, not /number/aod/number.....
+
+
+
+Figuring out the data multiple tracks with the same entries:
+		>>> MCHMID.csv file If only MCHMID >0 &&  && track.chi2MatchMCHMFT() <0 :SO only mchmid matches with no mft matching: 9319 unique track ID's with 9341 total tracks: 22 Duplicate ID's
+		>>>no_filt.csv file If NO filters on ID uniqueness or MCH/MFT matches: ALL tracks, bad & dupes: 11897 Unique entries, with 23880 entries total -assumng 2 of each ID: 86 unaccounted
+		for - no-duplicaates or tripple duplicates.
+		What can we see from this though? we see that there are 3 types of tracks:
+chi2		chi2MatchMCHMID	chi2MatchMCHMFT
+0.515625	1.21875	-1
+370688		1.21875	36
+1000	-1	17.125
+0.337891	-1	-1
+-1 in one, the other, neither, or Both
+
+The selection criteria of selecting the least chi2 options for a given particle id exclusively yields the mchmid matches or the double -1 matches

@@ -1,0 +1,19 @@
+How to see the datafiles as available on monalisa:
+start o2, enter, alien-token-init, alien.py baddaboom baddabing; There is some ssh nonsense also possible, but I've yet to get it to work
+Anyway on the monalisa there's an aod_collections.xml file for all of these, you can probably use this as an input according to llm's but that'd use ALL of the input files which might be overkill
+We instead opt to a list of alien files instead to test if this works ....
+Ok but if we have all of this is there much reason to bother with alien'ing into the grid? copying files i guess
+
+so remember those e-mails you get regularly? well you can use the small print at the bottom to figure out which version of o2physics is available on lxplus... for example in thise case it meant running the command verbatim from the e-mail
+/cvmfs/alice.cern.ch/bin/alienv enter VO_ALICE@O2Physics::daily-20250729-0000-1s
+
+ALLRIGHT so we setup the grid certificates on lxplus as well - much easier the second time around.
+Then we went to our eos directory which has a LOT of storage. to there we copied one of the desired root files at a speed of ~150mb/s Great success...
+so then we hoped that we'd be able to copy this at a faster rate to home using scp (doesn't work with eos storage for reasons) so we instead used some special scp-like command shown here: 
+
+ xrdcp root://eosuser.cern.ch//eos/user/c/cdevilli/honsdata/AO2D_test.root .
+
+To do this we need an active grid certificate (means run it in o2 and only after alien-token-init has been run
+
+.... and it does, but like only twice as fast as only using the basic alien_cp
+that is not the required speed.

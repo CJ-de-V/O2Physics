@@ -29,3 +29,6 @@ xcuserdata/
 
 #QtCreator
 CMakeLists.txt.user
+
+# Do not copy data
+*.root

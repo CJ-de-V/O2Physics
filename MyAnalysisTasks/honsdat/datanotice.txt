@@ -1,0 +1,30 @@
+Information on recorded variables:
+
+Input variables:
+
+ID:		Particle ID, used to identify
+		
+eta:		Pseudorapidity
+		
+pt:		Transverse momentum
+		
+p:		Total momentum
+
+phi:		Azimuthal angle
+		
+motherPDG:
+
+nClusters:
+
+pDca:
+
+chi2:
+
+chi2MatchMCHMID:
+
+chi2MatchMCHMFT:
+
+isPrompt:
+
+Output variable:
+??? foreground vs background --- which's signal & which's background
