@@ -13,54 +13,57 @@
 // \email: prottay.das@cern.ch
 
 // C++/ROOT includes.
-#include <TH1F.h>
-#include <chrono>
-#include <string>
-#include <vector>
+#include "Math/Vector4D.h"
+#include "TF1.h"
+#include "TRandom3.h"
 #include <TComplex.h>
+#include <TH1F.h>
 #include <TMath.h>
+
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <iostream>
-#include "Math/Vector4D.h"
-#include "TRandom3.h"
-#include "TF1.h"
+#include <string>
+#include <vector>
 
 // o2Physics includes.
-#include "Framework/AnalysisDataModel.h"
-#include "Framework/AnalysisTask.h"
-#include "Framework/runDataProcessing.h"
-#include "Framework/HistogramRegistry.h"
-#include "Framework/StepTHn.h"
-#include "Common/DataModel/Multiplicity.h"
-#include "Common/DataModel/TrackSelectionTables.h"
-#include "CommonConstants/PhysicsConstants.h"
+#include "PWGLF/DataModel/SPCalibrationTables.h"
+
+#include "Common/CCDB/ctpRateFetcher.h"
+#include "Common/Core/EventPlaneHelper.h"
+#include "Common/Core/PID/PIDTOF.h"
 #include "Common/Core/TrackSelection.h"
-#include "Common/DataModel/FT0Corrected.h"
-#include "FT0Base/Geometry.h"
-#include "FV0Base/Geometry.h"
 #include "Common/Core/trackUtilities.h"
 #include "Common/DataModel/Centrality.h"
 #include "Common/DataModel/EventSelection.h"
+#include "Common/DataModel/FT0Corrected.h"
+#include "Common/DataModel/Multiplicity.h"
 #include "Common/DataModel/PIDResponse.h"
-#include "Common/Core/PID/PIDTOF.h"
-#include "Common/TableProducer/PID/pidTOFBase.h"
-#include "Common/Core/EventPlaneHelper.h"
 #include "Common/DataModel/Qvectors.h"
-#include "Common/CCDB/ctpRateFetcher.h"
+#include "Common/DataModel/TrackSelectionTables.h"
+#include "Common/TableProducer/PID/pidTOFBase.h"
+
+#include "CommonConstants/PhysicsConstants.h"
 #include "DataFormatsParameters/GRPMagField.h"
 #include "DataFormatsParameters/GRPObject.h"
 #include "DataFormatsTPC/BetheBlochAleph.h"
 #include "DetectorsBase/GeometryManager.h"
 #include "DetectorsBase/Propagator.h"
+#include "FT0Base/Geometry.h"
+#include "FV0Base/Geometry.h"
 #include "Framework/ASoAHelpers.h"
+#include "Framework/AnalysisDataModel.h"
+#include "Framework/AnalysisTask.h"
+#include "Framework/HistogramRegistry.h"
+#include "Framework/StepTHn.h"
+#include "Framework/runDataProcessing.h"
 #include "ReconstructionDataFormats/Track.h"
-#include "PWGLF/DataModel/SPCalibrationTables.h"
 // #include "SPCalibrationTableswrite.h"
 
 // o2 includes.
-#include "CCDB/CcdbApi.h"
 #include "CCDB/BasicCCDBManager.h"
+#include "CCDB/CcdbApi.h"
 #include "DetectorsCommonDataFormats/AlignParam.h"
 
 using namespace o2;
@@ -90,6 +93,7 @@ struct spvector {
   Configurable<float> cfgCutCentralityMax{"cfgCutCentralityMax", 80.0f, "Centrality cut Max"};
   Configurable<float> cfgCutCentralityMin{"cfgCutCentralityMin", 0.0f, "Centrality cut Min"};
   Configurable<bool> additionalEvSel{"additionalEvSel", false, "additionalEvSel"};
+  Configurable<bool> usemem{"usemem", true, "usemem"};
 
   struct : ConfigurableGroup {
     Configurable<int> QxyNbins{"QxyNbins", 100, "Number of bins in QxQy histograms"};
@@ -227,6 +231,8 @@ struct spvector {
     AxisSpec basisAxis = {2, 0, 2, "basis"};
     AxisSpec VxyAxis = {2, 0, 2, "Vxy"};
 
+    histos.add("htpcnsigmapi", "htpcnsigmapi", kTH1F, {{50, -10, 10.0}});
+    histos.add("hEvtSelInfo", "hEvtSelInfo", kTH1F, {{10, 0, 10.0}});
     histos.add("hCentrality", "hCentrality", kTH1F, {{centfineAxis}});
     histos.add("Vz", "Vz", kTH1F, {vzfineAxis});
     histos.add("hpQxZDCAC", "hpQxZDCAC", kTProfile, {centfineAxis});
@@ -405,11 +411,19 @@ struct spvector {
   }
 
   using MyCollisions = soa::Join<aod::Collisions, aod::EvSels, aod::Mults, aod::FT0sCorrected, aod::CentFT0Cs>;
+  using AllTrackCandidates = soa::Join<aod::Tracks, aod::TracksExtra, aod::TracksDCA, aod::TrackSelection, aod::pidTPCFullPi, aod::pidTPCFullPr, aod::pidTPCFullKa>;
   Preslice<aod::Zdcs> zdcPerCollision = aod::collision::bcId;
 
-  void process(MyCollisions::iterator const& collision, aod::FT0s const& /*ft0s*/, aod::FV0As const& /*fv0s*/, BCsRun3 const& bcs, aod::Zdcs const&)
+  void process(MyCollisions::iterator const& collision, aod::FT0s const& /*ft0s*/, aod::FV0As const& /*fv0s*/, BCsRun3 const& bcs, aod::Zdcs const&, AllTrackCandidates const& tracks)
   {
 
+    if (usemem) {
+      for (const auto& track : tracks) {
+        histos.fill(HIST("htpcnsigmapi"), track.tpcNSigmaPi());
+      }
+    }
+
+    histos.fill(HIST("hEvtSelInfo"), 0.5);
     auto centrality = collision.centFT0C();
     bool triggerevent = false;
 
@@ -439,6 +453,8 @@ struct spvector {
       return;
     }
 
+    histos.fill(HIST("hEvtSelInfo"), 1.5);
+
     auto zdc = bc.zdc();
     auto zncEnergy = zdc.energySectorZNC();
     auto znaEnergy = zdc.energySectorZNA();
@@ -451,16 +467,22 @@ struct spvector {
       return;
     }
 
+    histos.fill(HIST("hEvtSelInfo"), 2.5);
+
     if (znaEnergy[0] <= 0.0 || znaEnergy[1] <= 0.0 || znaEnergy[2] <= 0.0 || znaEnergy[3] <= 0.0) {
       triggerevent = false;
       spcalibrationtable(triggerevent, currentRunNumber, centrality, vx, vy, vz, znaEnergycommon, zncEnergycommon, znaEnergy[0], znaEnergy[1], znaEnergy[2], znaEnergy[3], zncEnergy[0], zncEnergy[1], zncEnergy[2], zncEnergy[3], qxZDCA, qxZDCC, qyZDCA, qyZDCC, psiZDCC, psiZDCA);
       return;
     }
+    histos.fill(HIST("hEvtSelInfo"), 3.5);
+
     if (zncEnergy[0] <= 0.0 || zncEnergy[1] <= 0.0 || zncEnergy[2] <= 0.0 || zncEnergy[3] <= 0.0) {
       triggerevent = false;
       spcalibrationtable(triggerevent, currentRunNumber, centrality, vx, vy, vz, znaEnergycommon, zncEnergycommon, znaEnergy[0], znaEnergy[1], znaEnergy[2], znaEnergy[3], zncEnergy[0], zncEnergy[1], zncEnergy[2], zncEnergy[3], qxZDCA, qxZDCC, qyZDCA, qyZDCC, psiZDCC, psiZDCA);
       return;
     }
+
+    histos.fill(HIST("hEvtSelInfo"), 4.5);
 
     if (rctCut.requireRCTFlagChecker && !rctChecker(collision)) {
       triggerevent = false;
@@ -468,17 +490,23 @@ struct spvector {
       return;
     }
 
+    histos.fill(HIST("hEvtSelInfo"), 5.5);
+
     if (additionalEvSel && (!collision.selection_bit(aod::evsel::kIsGoodZvtxFT0vsPV))) {
       triggerevent = false;
       spcalibrationtable(triggerevent, currentRunNumber, centrality, vx, vy, vz, znaEnergycommon, zncEnergycommon, znaEnergy[0], znaEnergy[1], znaEnergy[2], znaEnergy[3], zncEnergy[0], zncEnergy[1], zncEnergy[2], zncEnergy[3], qxZDCA, qxZDCC, qyZDCA, qyZDCC, psiZDCC, psiZDCA);
       return;
     }
 
+    histos.fill(HIST("hEvtSelInfo"), 6.5);
+
     if (collision.sel8() && centrality > cfgCutCentralityMin && centrality < cfgCutCentralityMax && TMath::Abs(vz) < cfgCutVertex && collision.has_foundFT0() && collision.selection_bit(aod::evsel::kNoTimeFrameBorder) && collision.selection_bit(aod::evsel::kNoITSROFrameBorder)) {
       triggerevent = true;
       if (useGainCallib && (currentRunNumber != lastRunNumber)) {
         gainprofile = ccdb->getForTimeStamp<TH2D>(ConfGainPath.value, bc.timestamp());
       }
+
+      histos.fill(HIST("hEvtSelInfo"), 7.5);
 
       auto gainequal = 1.0;
       auto alphaZDC = 0.395;
@@ -547,6 +575,7 @@ struct spvector {
         return;
       }
 
+      histos.fill(HIST("hEvtSelInfo"), 8.5);
       histos.fill(HIST("hCentrality"), centrality);
       histos.fill(HIST("Vz"), vz);
 

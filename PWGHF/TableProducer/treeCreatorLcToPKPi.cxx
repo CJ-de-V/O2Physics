@@ -17,20 +17,34 @@
 /// \author Nicolo' Jacazio <nicolo.jacazio@cern.ch>, CERN
 /// \author Luigi Dello Stritto <luigi.dello.stritto@cern.ch>, CERN
 
-#include <algorithm>
-#include <utility>
-#include <vector>
-
-#include "CommonConstants/PhysicsConstants.h"
-#include "Framework/AnalysisTask.h"
-#include "Framework/runDataProcessing.h"
-
-#include "Common/DataModel/Centrality.h"
-#include "Common/DataModel/Multiplicity.h"
-
+#include "PWGHF/Core/DecayChannels.h"
 #include "PWGHF/Core/HfHelper.h"
 #include "PWGHF/DataModel/CandidateReconstructionTables.h"
 #include "PWGHF/DataModel/CandidateSelectionTables.h"
+
+#include "Common/Core/RecoDecay.h"
+#include "Common/DataModel/Centrality.h"
+#include "Common/DataModel/Multiplicity.h"
+
+#include <CommonConstants/PhysicsConstants.h>
+#include <Framework/ASoA.h>
+#include <Framework/AnalysisDataModel.h>
+#include <Framework/AnalysisHelpers.h>
+#include <Framework/AnalysisTask.h>
+#include <Framework/Configurable.h>
+#include <Framework/InitContext.h>
+#include <Framework/Logger.h>
+#include <Framework/runDataProcessing.h>
+
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <iterator>
+#include <numeric>
+#include <utility>
+#include <vector>
 
 using namespace o2;
 using namespace o2::framework;
@@ -388,6 +402,7 @@ struct HfTreeCreatorLcToPKPi {
   Configurable<bool> applyMl{"applyMl", false, "Whether ML was used in candidateSelectorLc"};
   Configurable<bool> keepOnlySignalMc{"keepOnlySignalMc", false, "Fill MC tree only with signal candidates"};
   Configurable<bool> keepOnlyBkg{"keepOnlyBkg", false, "Fill MC tree only with background candidates"};
+  Configurable<bool> keepCorrBkgMC{"keepCorrBkgMC", false, "Flag to keep correlated background sources (Λc+ -> p K− π+ π0, p π− π+, p K− K+ and other charm hadrons)"};
   Configurable<double> downSampleBkgFactor{"downSampleBkgFactor", 1., "Fraction of candidates to store in the tree"};
   Configurable<float> downSampleBkgPtMax{"downSampleBkgPtMax", 100.f, "Max. pt for background downsampling"};
 
@@ -550,17 +565,11 @@ struct HfTreeCreatorLcToPKPi {
   /// \brief function to evaluate invariant mass of the Lc candidate and KPi pair
   /// \param candidate candidate instance
   /// \param candFlag flag indicating if PKPi (0) or PiKP (1) hypothesis is used
-  template <int reconstructionType, typename CandType>
-  std::pair<float, float> evaluateInvariantMasses(CandType const& candidate, int candFlag)
+  template <typename CandType>
+  std::pair<float, float> evaluateInvariantMassesDCAFitter(CandType const& candidate, int candFlag)
   {
-    float invMass, invMassKPi;
-    if constexpr (reconstructionType == aod::hf_cand::VertexerType::DCAFitter) {
-      invMass = candFlag == 0 ? hfHelper.invMassLcToPKPi(candidate) : hfHelper.invMassLcToPiKP(candidate);
-      invMassKPi = candFlag == 0 ? hfHelper.invMassKPiPairLcToPKPi(candidate) : hfHelper.invMassKPiPairLcToPiKP(candidate);
-    } else {
-      invMass = candFlag == 0 ? candidate.kfMassPKPi() : candidate.kfMassPiKP();
-      invMassKPi = candFlag == 0 ? candidate.kfMassKPi() : candidate.kfMassPiK();
-    }
+    const float invMass = candFlag == 0 ? hfHelper.invMassLcToPKPi(candidate) : hfHelper.invMassLcToPiKP(candidate);
+    const float invMassKPi = candFlag == 0 ? hfHelper.invMassKPiPairLcToPKPi(candidate) : hfHelper.invMassKPiPairLcToPiKP(candidate);
 
     return std::make_pair(invMass, invMassKPi);
   }
@@ -597,10 +606,10 @@ struct HfTreeCreatorLcToPKPi {
   /// \param candidate candidate instance
   /// \param candidateMlScore instance of handler of vectors with ML scores associated with the current candidate
   /// \param candFlag flag indicating if PKPi (0) or PiKP (1) hypothesis is used
-  template <bool isMc, int reconstructionType, typename CandType>
+  template <bool isMc, typename CandType>
   void fillLiteTable(CandType const& candidate, aod::HfMlLcToPKPi::iterator const& candidateMlScore, int candFlag)
   {
-    auto [functionInvMass, functionInvMassKPi] = evaluateInvariantMasses<reconstructionType>(candidate, candFlag);
+    auto [functionInvMass, functionInvMassKPi] = evaluateInvariantMassesDCAFitter(candidate, candFlag);
     const float functionCt = hfHelper.ctLc(candidate);
     const float functionY = hfHelper.yLc(candidate);
 
@@ -682,10 +691,10 @@ struct HfTreeCreatorLcToPKPi {
   /// \param candidate candidate instance
   /// \param candidateMlScore instance of handler of vectors with ML scores associated with the current candidate
   /// \param candFlag flag indicating if PKPi (0) or PiKP (1) hypothesis is used
-  template <bool isMc, int reconstructionType, typename CandType>
+  template <bool isMc, typename CandType>
   void fillFullTable(CandType const& candidate, aod::HfMlLcToPKPi::iterator const& candidateMlScore, int candFlag)
   {
-    auto [functionInvMass, functionInvMassKPi] = evaluateInvariantMasses<reconstructionType>(candidate, candFlag);
+    auto [functionInvMass, functionInvMassKPi] = evaluateInvariantMassesDCAFitter(candidate, candFlag);
     const float functionCt = hfHelper.ctLc(candidate);
     const float functionY = hfHelper.yLc(candidate);
     const float functionE = hfHelper.eLc(candidate);
@@ -927,13 +936,15 @@ struct HfTreeCreatorLcToPKPi {
         const int sigbgstatus = determineSignalBgStatus(candidate, candFlag);
         const bool isMcCandidateSignal = (sigbgstatus == Prompt) || (sigbgstatus == NonPrompt);
         const bool passSelection = functionSelection >= selectionFlagLc;
-        const bool keepAll = !keepOnlySignalMc && !keepOnlyBkg;
+        const bool keepAll = !keepOnlySignalMc && !keepOnlyBkg && !keepCorrBkgMC;
+        const int flag = candidate.flagMcMatchRec();
+        const bool isCorrBkg = (std::abs(flag) != 0 && std::abs(flag) != o2::hf_decay::hf_cand_3prong::DecayChannelMain::LcToPKPi);
         const bool notSkippedBkg = isMcCandidateSignal || candidate.pt() > downSampleBkgPtMax || pseudoRndm < downSampleBkgFactor;
-        if (passSelection && notSkippedBkg && (keepAll || (keepOnlySignalMc && isMcCandidateSignal) || (keepOnlyBkg && !isMcCandidateSignal))) {
+        if (passSelection && notSkippedBkg && (keepAll || (keepOnlySignalMc && isMcCandidateSignal) || (keepOnlyBkg && !isMcCandidateSignal) || (keepCorrBkgMC && isCorrBkg))) {
           if (fillCandidateLiteTable) {
-            fillLiteTable<IsMc, reconstructionType>(candidate, candidateMlScore, candFlag);
+            fillLiteTable<IsMc>(candidate, candidateMlScore, candFlag);
           } else {
-            fillFullTable<IsMc, reconstructionType>(candidate, candidateMlScore, candFlag);
+            fillFullTable<IsMc>(candidate, candidateMlScore, candFlag);
           }
 
           if constexpr (reconstructionType == aod::hf_cand::VertexerType::KfParticle) {
@@ -1113,9 +1124,9 @@ struct HfTreeCreatorLcToPKPi {
         const int functionSelection = candFlag == 0 ? candidate.isSelLcToPKPi() : candidate.isSelLcToPiKP();
         if (functionSelection >= selectionFlagLc && (candidate.pt() > downSampleBkgPtMax || (pseudoRndm < downSampleBkgFactor && candidate.pt() < downSampleBkgPtMax))) {
           if (fillCandidateLiteTable) {
-            fillLiteTable<IsMc, reconstructionType>(candidate, candidateMlScore, candFlag);
+            fillLiteTable<IsMc>(candidate, candidateMlScore, candFlag);
           } else {
-            fillFullTable<IsMc, reconstructionType>(candidate, candidateMlScore, candFlag);
+            fillFullTable<IsMc>(candidate, candidateMlScore, candFlag);
           }
 
           if constexpr (reconstructionType == aod::hf_cand::VertexerType::KfParticle) {

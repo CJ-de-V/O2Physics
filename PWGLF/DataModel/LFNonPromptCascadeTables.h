@@ -119,10 +119,14 @@ DECLARE_SOA_COLUMN(MultFT0M, multFT0M, float);
 DECLARE_SOA_COLUMN(CentFT0C, centFT0C, float);
 DECLARE_SOA_COLUMN(CentFT0A, centFT0A, float);
 DECLARE_SOA_COLUMN(CentFT0M, centFT0M, float);
+DECLARE_SOA_COLUMN(MultNTracksGlobal, multNTracksGlobal, int);
 DECLARE_SOA_COLUMN(ToiMask, toiMask, uint32_t);
+DECLARE_SOA_COLUMN(RunNumber, runNumber, int);
+DECLARE_SOA_COLUMN(NoSameBunchPileup, noSameBunchPileup, bool);
 
 } // namespace NPCascadeTable
 DECLARE_SOA_TABLE(NPCascTable, "AOD", "NPCASCTABLE",
+                  NPCascadeTable::RunNumber,
                   NPCascadeTable::MatchingChi2,
                   NPCascadeTable::DeltaPtITSCascade,
                   NPCascadeTable::DeltaPtCascade,
@@ -185,9 +189,12 @@ DECLARE_SOA_TABLE(NPCascTable, "AOD", "NPCASCTABLE",
                   NPCascadeTable::CentFT0C,
                   NPCascadeTable::CentFT0A,
                   NPCascadeTable::CentFT0M,
-                  NPCascadeTable::ToiMask)
+                  NPCascadeTable::MultNTracksGlobal,
+                  NPCascadeTable::ToiMask,
+                  NPCascadeTable::NoSameBunchPileup)
 
 DECLARE_SOA_TABLE(NPCascTableNT, "AOD", "NPCASCTABLENT",
+                  NPCascadeTable::RunNumber,
                   NPCascadeTable::MatchingChi2,
                   NPCascadeTable::DeltaPtITSCascade,
                   NPCascadeTable::DeltaPtCascade,
@@ -250,9 +257,12 @@ DECLARE_SOA_TABLE(NPCascTableNT, "AOD", "NPCASCTABLENT",
                   NPCascadeTable::CentFT0C,
                   NPCascadeTable::CentFT0A,
                   NPCascadeTable::CentFT0M,
-                  NPCascadeTable::ToiMask)
+                  NPCascadeTable::MultNTracksGlobal,
+                  NPCascadeTable::ToiMask,
+                  NPCascadeTable::NoSameBunchPileup)
 
 DECLARE_SOA_TABLE(NPCascTableMC, "AOD", "NPCASCTABLEMC",
+                  NPCascadeTable::RunNumber,
                   NPCascadeTable::MatchingChi2,
                   NPCascadeTable::DeltaPtITSCascade,
                   NPCascadeTable::DeltaPtCascade,
@@ -334,9 +344,12 @@ DECLARE_SOA_TABLE(NPCascTableMC, "AOD", "NPCASCTABLEMC",
                   NPCascadeTable::MCcollisionMatch,
                   NPCascadeTable::HasFakeReassociation,
                   NPCascadeTable::MotherDecayDaughters,
-                  NPCascadeTable::ToiMask)
+                  NPCascadeTable::MultNTracksGlobal,
+                  NPCascadeTable::ToiMask,
+                  NPCascadeTable::NoSameBunchPileup)
 
 DECLARE_SOA_TABLE(NPCascTableMCNT, "AOD", "NPCASCTABLEMCNT",
+                  NPCascadeTable::RunNumber,
                   NPCascadeTable::MatchingChi2,
                   NPCascadeTable::DeltaPtITSCascade,
                   NPCascadeTable::DeltaPtCascade,
@@ -418,7 +431,9 @@ DECLARE_SOA_TABLE(NPCascTableMCNT, "AOD", "NPCASCTABLEMCNT",
                   NPCascadeTable::MCcollisionMatch,
                   NPCascadeTable::HasFakeReassociation,
                   NPCascadeTable::MotherDecayDaughters,
-                  NPCascadeTable::ToiMask)
+                  NPCascadeTable::MultNTracksGlobal,
+                  NPCascadeTable::ToiMask,
+                  NPCascadeTable::NoSameBunchPileup)
 
 DECLARE_SOA_TABLE(NPCascTableGen, "AOD", "NPCASCTABLEGen",
                   NPCascadeTable::gPt,
