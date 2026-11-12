@@ -114,6 +114,9 @@ add_subdirectory(PWGLF)
 add_subdirectory(PWGMM)
 add_subdirectory(PWGUD)
 
+# Add my tasks
+add_subdirectory(myanalysistasks)
+
 add_subdirectory(Tools)
 add_subdirectory(Tutorials)
 add_subdirectory(EventFiltering)
