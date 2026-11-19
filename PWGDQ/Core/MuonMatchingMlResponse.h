@@ -90,6 +90,7 @@ enum class InputFeaturesMFTMuonMatch : uint8_t {
   tglMFT,
   phiMFT,
   ptMFT,
+  pMFT,
   etaMFT,
   timeMFT,
   timeResMFT,
@@ -106,6 +107,7 @@ enum class InputFeaturesMFTMuonMatch : uint8_t {
   tglMCH,
   phiMCH,
   ptMCH,
+  pMCH,
   etaMCH,
   timeMCH,
   timeResMCH,
@@ -152,7 +154,9 @@ enum class InputFeaturesMFTMuonMatch : uint8_t {
   deltaPhi,
   deltaTgl,
   deltaEta,
+  delta1Pt,
   deltaPt,
+  deltaP,
   deltaR,
   deltaDirection,
   pullX,
@@ -163,6 +167,7 @@ enum class InputFeaturesMFTMuonMatch : uint8_t {
   pullPt,
   pullR,
   deltaPtRel,
+  deltaPRel,
   // track residuals (absolute values)
   absDeltaX,
   absDeltaY,
@@ -170,6 +175,7 @@ enum class InputFeaturesMFTMuonMatch : uint8_t {
   absDeltaTgl,
   absDeltaEta,
   absDeltaPt,
+  absDeltaP,
   absDeltaR,
   absDeltaDirection,
   absPullX,
@@ -258,6 +264,11 @@ float getPull(float mftVal, float mftErr2, float mchVal, float mchErr2)
   return (err > 0 ? delta / err : delta);
 }
 
+float getRelDifference(float mftVal, float mchVal)
+{
+  return (mchVal - mftVal) / (mchVal + mftVal);
+}
+
 template <typename TypeOutputScore = float>
 class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
 {
@@ -285,6 +296,7 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       /*dummy value*/ CHECK_AND_FILL_FEATURE(dcaXY, 0);
       /*dummy value*/ CHECK_AND_FILL_FEATURE(dcaZ, 0);
       CHECK_AND_FILL_FEATURE(ptMFT, mftprop.getPt());
+      CHECK_AND_FILL_FEATURE(pMFT, mftprop.getPt() * std::cosh(mftprop.getEta()));
       CHECK_AND_FILL_FEATURE(etaMFT, mftprop.getEta());
       CHECK_AND_FILL_FEATURE(timeMFT, mft.trackTime());
       CHECK_AND_FILL_FEATURE(timeResMFT, mft.trackTimeRes());
@@ -297,6 +309,7 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       CHECK_AND_FILL_FEATURE(tglMCH, mchprop.getTanl());
       CHECK_AND_FILL_FEATURE(phiMCH, mchprop.getPhi());
       CHECK_AND_FILL_FEATURE(ptMCH, mchprop.getPt());
+      CHECK_AND_FILL_FEATURE(pMCH, mchprop.getPt() * std::cosh(mchprop.getEta()));
       CHECK_AND_FILL_FEATURE(etaMCH, mchprop.getEta());
       CHECK_AND_FILL_FEATURE(timeMCH, mch.trackTime());
       CHECK_AND_FILL_FEATURE(timeResMCH, mch.trackTimeRes());
@@ -343,10 +356,13 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       CHECK_AND_FILL_FEATURE(deltaPhi, mchprop.getPhi() - mftprop.getPhi());
       CHECK_AND_FILL_FEATURE(deltaTgl, mchprop.getTgl() - mftprop.getTgl());
       CHECK_AND_FILL_FEATURE(deltaEta, mchprop.getEta() - mftprop.getEta());
+      CHECK_AND_FILL_FEATURE(delta1Pt, mchprop.getInvQPt() - mftprop.getInvQPt());
       CHECK_AND_FILL_FEATURE(deltaPt, mchprop.getPt() - mftprop.getPt());
+      CHECK_AND_FILL_FEATURE(deltaP, mchprop.getPt() * std::cosh(mchprop.getEta()) - mftprop.getPt() * std::cosh(mftprop.getEta()));
       CHECK_AND_FILL_FEATURE(deltaR, getDeltaR(mftprop, mchprop));
       CHECK_AND_FILL_FEATURE(deltaDirection, getDeltaDirection(mftprop, mchprop));
-      CHECK_AND_FILL_FEATURE(deltaPtRel, (mchprop.getPt() - mftprop.getPt()) / (mchprop.getPt() + mftprop.getPt()));
+      CHECK_AND_FILL_FEATURE(deltaPtRel, getRelDifference(mftprop.getPt(), mchprop.getPt()));
+      CHECK_AND_FILL_FEATURE(deltaPRel, getRelDifference(mftprop.getPt() * std::cosh(mftprop.getEta()), mchprop.getPt() * std::cosh(mchprop.getEta())));
       CHECK_AND_FILL_FEATURE(pullX, getPull(mftprop.getX(), mftprop.getCovariances()(0, 0), mchprop.getX(), mchprop.getCovariances()(0, 0)));
       CHECK_AND_FILL_FEATURE(pullY, getPull(mftprop.getY(), mftprop.getCovariances()(1, 1), mchprop.getY(), mchprop.getCovariances()(1, 1)));
       CHECK_AND_FILL_FEATURE(pullPhi, getPull(mftprop.getPhi(), mftprop.getCovariances()(2, 2), mchprop.getPhi(), mchprop.getCovariances()(2, 2)));
@@ -361,9 +377,10 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       CHECK_AND_FILL_FEATURE(absDeltaTgl, std::fabs(mchprop.getTgl() - mftprop.getTgl()));
       CHECK_AND_FILL_FEATURE(absDeltaEta, std::fabs(mchprop.getEta() - mftprop.getEta()));
       CHECK_AND_FILL_FEATURE(absDeltaPt, std::fabs(mchprop.getPt() - mftprop.getPt()));
+      CHECK_AND_FILL_FEATURE(absDeltaP, std::fabs(mchprop.getPt() * std::cosh(mchprop.getEta()) - mftprop.getPt() * std::cosh(mftprop.getEta())));
       CHECK_AND_FILL_FEATURE(absDeltaR, std::fabs(getDeltaR(mftprop, mchprop)));
       CHECK_AND_FILL_FEATURE(absDeltaDirection, std::fabs(getDeltaDirection(mftprop, mchprop)));
-      CHECK_AND_FILL_FEATURE(absDeltaPtRel, std::fabs((mchprop.getPt() - mftprop.getPt()) / (mchprop.getPt() + mftprop.getPt())));
+      CHECK_AND_FILL_FEATURE(absDeltaPtRel, std::fabs(getRelDifference(mftprop.getPt(), mchprop.getPt())));
       CHECK_AND_FILL_FEATURE(absPullX, std::fabs(getPull(mftprop.getX(), mftprop.getCovariances()(0, 0), mchprop.getX(), mchprop.getCovariances()(0, 0))));
       CHECK_AND_FILL_FEATURE(absPullY, std::fabs(getPull(mftprop.getY(), mftprop.getCovariances()(1, 1), mchprop.getY(), mchprop.getCovariances()(1, 1))));
       CHECK_AND_FILL_FEATURE(absPullPhi, std::fabs(getPull(mftprop.getPhi(), mftprop.getCovariances()(2, 2), mchprop.getPhi(), mchprop.getCovariances()(2, 2))));
@@ -447,6 +464,7 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       FILL_MAP_MFTMUON_MATCH(tglMFT),
       FILL_MAP_MFTMUON_MATCH(phiMFT),
       FILL_MAP_MFTMUON_MATCH(ptMFT),
+      FILL_MAP_MFTMUON_MATCH(pMFT),
       FILL_MAP_MFTMUON_MATCH(etaMFT),
       FILL_MAP_MFTMUON_MATCH(timeMFT),
       FILL_MAP_MFTMUON_MATCH(timeResMFT),
@@ -464,6 +482,7 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       FILL_MAP_MFTMUON_MATCH(phiMCH),
       FILL_MAP_MFTMUON_MATCH(nClustersMCH),
       FILL_MAP_MFTMUON_MATCH(ptMCH),
+      FILL_MAP_MFTMUON_MATCH(pMCH),
       FILL_MAP_MFTMUON_MATCH(etaMCH),
       FILL_MAP_MFTMUON_MATCH(timeMCH),
       FILL_MAP_MFTMUON_MATCH(timeResMCH),
@@ -510,6 +529,8 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       FILL_MAP_MFTMUON_MATCH(deltaTgl),
       FILL_MAP_MFTMUON_MATCH(deltaEta),
       FILL_MAP_MFTMUON_MATCH(deltaPt),
+      FILL_MAP_MFTMUON_MATCH(delta1Pt),
+      FILL_MAP_MFTMUON_MATCH(deltaP),
       FILL_MAP_MFTMUON_MATCH(deltaR),
       FILL_MAP_MFTMUON_MATCH(deltaDirection),
       FILL_MAP_MFTMUON_MATCH(pullX),
@@ -520,6 +541,7 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       FILL_MAP_MFTMUON_MATCH(pullPt),
       FILL_MAP_MFTMUON_MATCH(pullR),
       FILL_MAP_MFTMUON_MATCH(deltaPtRel),
+      FILL_MAP_MFTMUON_MATCH(deltaPRel),
       // track residuals (absolute values)
       FILL_MAP_MFTMUON_MATCH(absDeltaX),
       FILL_MAP_MFTMUON_MATCH(absDeltaY),
@@ -527,6 +549,7 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       FILL_MAP_MFTMUON_MATCH(absDeltaTgl),
       FILL_MAP_MFTMUON_MATCH(absDeltaEta),
       FILL_MAP_MFTMUON_MATCH(absDeltaPt),
+      FILL_MAP_MFTMUON_MATCH(absDeltaP),
       FILL_MAP_MFTMUON_MATCH(absDeltaR),
       FILL_MAP_MFTMUON_MATCH(absDeltaDirection),
       FILL_MAP_MFTMUON_MATCH(absPullX),
