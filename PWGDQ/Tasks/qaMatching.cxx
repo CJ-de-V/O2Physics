@@ -484,6 +484,14 @@ struct QaMatching {
     std::array<Configurable<float>*, MlModelsNum> matchingPlaneZs{
       &cfgMlModelMatchingPlaneZ1, &cfgMlModelMatchingPlaneZ2, &cfgMlModelMatchingPlaneZ3, &cfgMlModelMatchingPlaneZ4, &cfgMlModelMatchingPlaneZ5};
 
+    Configurable<float> cfgMlModelMatchingPlane2Z1{"cfgMlModelMatchingPlane2Z1", 0.f, "Z position of the second matching plane, default value of 0.f  runs single plane matching"};
+    Configurable<float> cfgMlModelMatchingPlane2Z2{"cfgMlModelMatchingPlane2Z2", 0.f, "Z position of the second matching plane, default value of 0.f  runs single plane matching"};
+    Configurable<float> cfgMlModelMatchingPlane2Z3{"cfgMlModelMatchingPlane2Z3", 0.f, "Z position of the second matching plane, default value of 0.f  runs single plane matching"};
+    Configurable<float> cfgMlModelMatchingPlane2Z4{"cfgMlModelMatchingPlane2Z4", 0.f, "Z position of the second matching plane, default value of 0.f  runs single plane matching"};
+    Configurable<float> cfgMlModelMatchingPlane2Z5{"cfgMlModelMatchingPlane2Z5", 0.f, "Z position of the second matching plane, default value of 0.f  runs single plane matching"};
+    std::array<Configurable<float>*, MlModelsNum> matchingPlane2Zs{
+      &cfgMlModelMatchingPlane2Z1, &cfgMlModelMatchingPlane2Z2, &cfgMlModelMatchingPlane2Z3, &cfgMlModelMatchingPlane2Z4, &cfgMlModelMatchingPlane2Z5};
+
     Configurable<int> cfgMlMatchingExtrapMethod1{"cfgMlMatchingExtrapMethod1", 0, "Method for MCH track extrapolation to maching plane"};
     Configurable<int> cfgMlMatchingExtrapMethod2{"cfgMlMatchingExtrapMethod2", 0, "Method for MCH track extrapolation to maching plane"};
     Configurable<int> cfgMlMatchingExtrapMethod3{"cfgMlMatchingExtrapMethod3", 0, "Method for MCH track extrapolation to maching plane"};
@@ -499,6 +507,7 @@ struct QaMatching {
   std::map<std::string, o2::analysis::MlResponseMFTMuonMatch<float>> matchingMlResponses;
   std::map<std::string, std::string> matchingChi2Functions;
   std::map<std::string, double> matchingPlanesZ;
+  std::map<std::string, double> matchingPlane2Zs;
   std::map<std::string, double> matchingScoreCuts;
   std::map<std::string, int> matchingExtrapMethod;
 
@@ -3398,17 +3407,28 @@ struct QaMatching {
         // get tracks parameters in O2 format
         auto mftTrackProp = fwdToTrackPar(mftTrack, mftTrackCov);
         auto mchTrackProp = fwdToTrackPar(mchTrack, mchTrack);
-
-        // extrapolate to the matching plane
+        auto mftTrackProp2 = mftTrackProp;
+        auto mchTrackProp2 = mchTrackProp;
         auto matchingPlaneZ = matchingPlanesZ[label];
+        auto matchingPlane2Z = matchingPlane2Zs[label];
+
         if (matchingPlaneZ < 0.) {
           mftTrackProp = propagateToZMft(mftTrackProp, matchingPlaneZ);
           mchTrackProp = propagateToZMch(mchTrackProp, matchingPlaneZ);
         }
 
-        // run the ML model
+        std::vector<float> inputML;
+        if (matchingPlane2Z < 0.f) {
+          // For 2 plane matching we still use plane 1 for the metric plotting, i.e. store plane1's prop'd tracks
+          mftTrackProp2 = propagateToZMft(mftTrackProp, matchingPlane2Z);
+          mchTrackProp2 = propagateToZMch(mchTrackProp, matchingPlane2Z);
+          // TODO: confirm proper interfacing with mlresponse
+          inputML = mlResponse.getInputFeatures(muonTrack, mftTrack, mchTrack, mftTrackProp, mchTrackProp, mftTrackProp2, mchTrackProp2, collision);
+        } else {
+          inputML = mlResponse.getInputFeatures(muonTrack, mftTrack, mchTrack, mftTrackProp, mchTrackProp, collision);
+        }
+
         std::vector<float> output;
-        std::vector<float> inputML = mlResponse.getInputFeatures(muonTrack, mftTrack, mchTrack, mftTrackProp, mchTrackProp, collision);
         mlResponse.isSelectedMl(inputML, 0, output);
         float matchScore = output[0];
         float matchScoreInv = (matchScore > 0) ? 1.0 / matchScore : std::numeric_limits<float>::max();
@@ -3429,7 +3449,7 @@ struct QaMatching {
             mftTrack.globalIndex(),
             candidate.trackType,
             static_cast<const o2::track::TrackParCovFwd&>(mftTrackProp),
-            static_cast<const o2::track::TrackParCovFwd&>(mchTrackProp),
+            static_cast<const o2::track::TrackParCovFwd&>(mchTrackProp), // TODO: add plane2too
             matchScore,
             matchChi2,
             -1,

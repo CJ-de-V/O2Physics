@@ -210,7 +210,137 @@ enum class InputFeaturesMFTMuonMatch : uint8_t {
   chi2GlobMUON,
   dcaX,
   dcaY,
-  isAmbig
+  isAmbig,
+  // matching parameters for second matching plane
+  zMatching2,
+  // MFT track parameters
+  xMFT2,
+  yMFT2,
+  qOverptMFT2,
+  tglMFT2,
+  phiMFT2,
+  ptMFT2,
+  pMFT2,
+  etaMFT2,
+  // timeMFT2,
+  // timeResMFT2,
+  // clusterSizesAndTrackFlagsMFT2,
+  // trackTypeMFT2,
+  // dcaXY2,
+  // dcaZ2,
+  // chi2MFT2,
+  // nClustersMFT2,
+  // MCH track parameters
+  xMCH2,
+  yMCH2,
+  qOverptMCH2,
+  tglMCH2,
+  phiMCH2,
+  ptMCH2,
+  pMCH2,
+  etaMCH2,
+  // timeMCH2,
+  // timeResMCH2,
+  // nClustersMCH2,
+  // chi2MCH2,
+  // pdca2,
+  // Rabs2,
+  // MFT covariances
+  cXXMFT2,
+  cXYMFT2,
+  cYYMFT2,
+  cPhiYMFT2,
+  cPhiXMFT2,
+  cPhiPhiMFT2,
+  cTglYMFT2,
+  cTglXMFT2,
+  cTglPhiMFT2,
+  cTglTglMFT2,
+  c1PtYMFT2,
+  c1PtXMFT2,
+  c1PtPhiMFT2,
+  c1PtTglMFT2,
+  c1Pt21Pt2MFT2,
+  // MCH covariances
+  cXXMCH2,
+  cXYMCH2,
+  cYYMCH2,
+  cPhiYMCH2,
+  cPhiXMCH2,
+  cPhiPhiMCH2,
+  cTglYMCH2,
+  cTglXMCH2,
+  cTglPhiMCH2,
+  cTglTglMCH2,
+  c1PtYMCH2,
+  c1PtXMCH2,
+  c1PtPhiMCH2,
+  c1PtTglMCH2,
+  c1Pt21Pt2MCH2,
+  // track residuals
+  sameSign2,
+  deltaX2,
+  deltaY2,
+  deltaPhi2,
+  deltaTgl2,
+  deltaEta2,
+  delta1Pt2,
+  deltaPt2,
+  deltaP2,
+  deltaR2,
+  deltaDirection2,
+  pullX2,
+  pullY2,
+  pullPhi2,
+  pullTgl2,
+  pullEta2,
+  pullPt2,
+  pullR2,
+  deltaPtRel2,
+  deltaPRel2,
+  // track residuals (absolute values)
+  absDeltaX2,
+  absDeltaY2,
+  absDeltaPhi2,
+  absDeltaTgl2,
+  absDeltaEta2,
+  absDeltaPt2,
+  absDeltaP2,
+  absDeltaR2,
+  absDeltaDirection2,
+  absPullX2,
+  absPullY2,
+  absPullPhi2,
+  absPullTgl2,
+  absPullEta2,
+  absPullPt2,
+  absPullR2,
+  absDeltaPtRel2,
+  // primary vertex parameters
+  // posX2,
+  // posY2,
+  // posZ2,
+  // numContrib2,
+  // trackOccupancyInTimeRange2,
+  // ft0cOccupancyInTimeRange2,
+  // multMFT2,
+  // multFT0A2,
+  // multFT0C2,
+  // multNTracksPV2,
+  // multNTracksPVeta12,
+  // multNTracksPVetaHalf2,
+  // isInelGt02,
+  // isInelGt12,
+  // multFT0M2,
+  // centFT0M2,
+  // centFT0A2,
+  // centFT0C2,
+  // // global forward track parameters
+  // chi2MCHMFT2,
+  // chi2GlobMUON2,
+  // dcaX2,
+  // dcaY2,
+  // isAmbig2,
 };
 
 template <typename T1, typename T2>
@@ -278,8 +408,8 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
   /// Default destructor
   virtual ~MlResponseMFTMuonMatch() = default;
 
-  template <typename T1, typename T2, typename T3, typename T4, typename T5, typename U>
-  float returnFeature(uint8_t idx, T1 const& muon, T2 const& mft, T3 const& mch, T4 const& mftprop, T5 const& mchprop, U const& collision)
+  template <typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename U>
+  float returnFeature(uint8_t idx, T1 const& muon, T2 const& mft, T3 const& mch, T4 const& mftprop, T5 const& mchprop, T6 const& mftprop2, T7 const& mchprop2, U const& collision)
   {
     float inputFeature = 0.;
     switch (idx) {
@@ -296,7 +426,7 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       /*dummy value*/ CHECK_AND_FILL_FEATURE(dcaXY, 0);
       /*dummy value*/ CHECK_AND_FILL_FEATURE(dcaZ, 0);
       CHECK_AND_FILL_FEATURE(ptMFT, mftprop.getPt());
-      CHECK_AND_FILL_FEATURE(pMFT, mftprop.getPt() * std::cosh(mftprop.getEta()));
+      CHECK_AND_FILL_FEATURE(pMFT, mftprop.getP());
       CHECK_AND_FILL_FEATURE(etaMFT, mftprop.getEta());
       CHECK_AND_FILL_FEATURE(timeMFT, mft.trackTime());
       CHECK_AND_FILL_FEATURE(timeResMFT, mft.trackTimeRes());
@@ -309,7 +439,7 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       CHECK_AND_FILL_FEATURE(tglMCH, mchprop.getTanl());
       CHECK_AND_FILL_FEATURE(phiMCH, mchprop.getPhi());
       CHECK_AND_FILL_FEATURE(ptMCH, mchprop.getPt());
-      CHECK_AND_FILL_FEATURE(pMCH, mchprop.getPt() * std::cosh(mchprop.getEta()));
+      CHECK_AND_FILL_FEATURE(pMCH, mchprop.getP());
       CHECK_AND_FILL_FEATURE(etaMCH, mchprop.getEta());
       CHECK_AND_FILL_FEATURE(timeMCH, mch.trackTime());
       CHECK_AND_FILL_FEATURE(timeResMCH, mch.trackTimeRes());
@@ -358,11 +488,11 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       CHECK_AND_FILL_FEATURE(deltaEta, mchprop.getEta() - mftprop.getEta());
       CHECK_AND_FILL_FEATURE(delta1Pt, mchprop.getInvQPt() - mftprop.getInvQPt());
       CHECK_AND_FILL_FEATURE(deltaPt, mchprop.getPt() - mftprop.getPt());
-      CHECK_AND_FILL_FEATURE(deltaP, mchprop.getPt() * std::cosh(mchprop.getEta()) - mftprop.getPt() * std::cosh(mftprop.getEta()));
+      CHECK_AND_FILL_FEATURE(deltaP, mchprop.getP() - mftprop.getP());
       CHECK_AND_FILL_FEATURE(deltaR, getDeltaR(mftprop, mchprop));
       CHECK_AND_FILL_FEATURE(deltaDirection, getDeltaDirection(mftprop, mchprop));
       CHECK_AND_FILL_FEATURE(deltaPtRel, getRelDifference(mftprop.getPt(), mchprop.getPt()));
-      CHECK_AND_FILL_FEATURE(deltaPRel, getRelDifference(mftprop.getPt() * std::cosh(mftprop.getEta()), mchprop.getPt() * std::cosh(mchprop.getEta())));
+      CHECK_AND_FILL_FEATURE(deltaPRel, getRelDifference(mftprop.getP(), mchprop.getP()));
       CHECK_AND_FILL_FEATURE(pullX, getPull(mftprop.getX(), mftprop.getCovariances()(0, 0), mchprop.getX(), mchprop.getCovariances()(0, 0)));
       CHECK_AND_FILL_FEATURE(pullY, getPull(mftprop.getY(), mftprop.getCovariances()(1, 1), mchprop.getY(), mchprop.getCovariances()(1, 1)));
       CHECK_AND_FILL_FEATURE(pullPhi, getPull(mftprop.getPhi(), mftprop.getCovariances()(2, 2), mchprop.getPhi(), mchprop.getCovariances()(2, 2)));
@@ -377,7 +507,7 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       CHECK_AND_FILL_FEATURE(absDeltaTgl, std::fabs(mchprop.getTgl() - mftprop.getTgl()));
       CHECK_AND_FILL_FEATURE(absDeltaEta, std::fabs(mchprop.getEta() - mftprop.getEta()));
       CHECK_AND_FILL_FEATURE(absDeltaPt, std::fabs(mchprop.getPt() - mftprop.getPt()));
-      CHECK_AND_FILL_FEATURE(absDeltaP, std::fabs(mchprop.getPt() * std::cosh(mchprop.getEta()) - mftprop.getPt() * std::cosh(mftprop.getEta())));
+      CHECK_AND_FILL_FEATURE(absDeltaP, std::fabs(mchprop.getP() - mftprop.getP()));
       CHECK_AND_FILL_FEATURE(absDeltaR, std::fabs(getDeltaR(mftprop, mchprop)));
       CHECK_AND_FILL_FEATURE(absDeltaDirection, std::fabs(getDeltaDirection(mftprop, mchprop)));
       CHECK_AND_FILL_FEATURE(absDeltaPtRel, std::fabs(getRelDifference(mftprop.getPt(), mchprop.getPt())));
@@ -412,7 +542,141 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       CHECK_AND_FILL_FEATURE(chi2GlobMUON, muon.chi2());
       CHECK_AND_FILL_FEATURE_OPTIONAL(dcaX, muon, fwdDcaX);
       CHECK_AND_FILL_FEATURE_OPTIONAL(dcaY, muon, fwdDcaY);
-      CHECK_AND_FILL_FEATURE_OPTIONAL(isAmbig, muon, compatibleCollIds, (muon.compatibleCollIds().size() == 1) ? 0 : 1);
+      CHECK_AND_FILL_FEATURE_OPTIONAL(isAmbig, muon, compatibleCollIds, (muon.compatibleCollIds().size() == 1) ? 0 : 1)
+
+      // plane 2
+      // matching parameters
+      CHECK_AND_FILL_FEATURE(zMatching2, mftprop2.getZ());
+      // MFT2 track parameters
+      CHECK_AND_FILL_FEATURE(xMFT2, mftprop2.getX());
+      CHECK_AND_FILL_FEATURE(yMFT2, mftprop2.getY());
+      CHECK_AND_FILL_FEATURE(qOverptMFT2, mftprop2.getInvQPt());
+      CHECK_AND_FILL_FEATURE(tglMFT2, mftprop2.getTanl());
+      CHECK_AND_FILL_FEATURE(phiMFT2, mftprop2.getPhi());
+      // CHECK_AND_FILL_FEATURE(chi2MFT2, mft.chi2());
+      // CHECK_AND_FILL_FEATURE(nClustersMFT2, mft.nClusters());
+      // /*dummy value*/ CHECK_AND_FILL_FEATURE(dcaXY, 0);
+      // /*dummy value*/ CHECK_AND_FILL_FEATURE(dcaZ, 0);
+      CHECK_AND_FILL_FEATURE(ptMFT2, mftprop2.getPt());
+      CHECK_AND_FILL_FEATURE(pMFT2, mftprop2.getP());
+      CHECK_AND_FILL_FEATURE(etaMFT2, mftprop2.getEta());
+      // CHECK_AND_FILL_FEATURE(timeMFT2, mft.trackTime());
+      // CHECK_AND_FILL_FEATURE(timeResMFT2, mft.trackTimeRes());
+      // CHECK_AND_FILL_FEATURE(clusterSizesAndTrackFlagsMFT2, mft.mftClusterSizesAndTrackFlags());
+      // CHECK_AND_FILL_FEATURE(trackTypeMFT2, (mft.isCA() ? 1 : 0));
+      // MCH2 track parameters
+      CHECK_AND_FILL_FEATURE(xMCH2, mchprop2.getX());
+      CHECK_AND_FILL_FEATURE(yMCH2, mchprop2.getY());
+      CHECK_AND_FILL_FEATURE(qOverptMCH2, mchprop2.getInvQPt());
+      CHECK_AND_FILL_FEATURE(tglMCH2, mchprop2.getTanl());
+      CHECK_AND_FILL_FEATURE(phiMCH2, mchprop2.getPhi());
+      CHECK_AND_FILL_FEATURE(ptMCH2, mchprop2.getPt());
+      CHECK_AND_FILL_FEATURE(pMCH2, mchprop2.getP());
+      // CHECK_AND_FILL_FEATURE(etaMCH2, mchprop2.getEta());
+      // CHECK_AND_FILL_FEATURE(timeMCH2, mch.trackTime());
+      // CHECK_AND_FILL_FEATURE(timeResMCH2, mch.trackTimeRes());
+      // CHECK_AND_FILL_FEATURE(nClustersMCH2, mch.nClusters());
+      // CHECK_AND_FILL_FEATURE(chi2MCH2, mch.chi2());
+      // CHECK_AND_FILL_FEATURE(pdca, muon.pDca());
+      // CHECK_AND_FILL_FEATURE(Rabs, muon.rAtAbsorberEnd());
+      // MFT2 covariances
+      CHECK_AND_FILL_FEATURE(cXXMFT2, mftprop2.getCovariances()(0, 0));
+      CHECK_AND_FILL_FEATURE(cXYMFT2, mftprop2.getCovariances()(0, 1));
+      CHECK_AND_FILL_FEATURE(cYYMFT2, mftprop2.getCovariances()(1, 1));
+      CHECK_AND_FILL_FEATURE(cPhiXMFT2, mftprop2.getCovariances()(0, 2));
+      CHECK_AND_FILL_FEATURE(cPhiYMFT2, mftprop2.getCovariances()(1, 2));
+      CHECK_AND_FILL_FEATURE(cPhiPhiMFT2, mftprop2.getCovariances()(2, 2));
+      CHECK_AND_FILL_FEATURE(cTglXMFT2, mftprop2.getCovariances()(0, 3));
+      CHECK_AND_FILL_FEATURE(cTglYMFT2, mftprop2.getCovariances()(1, 3));
+      CHECK_AND_FILL_FEATURE(cTglPhiMFT2, mftprop2.getCovariances()(2, 3));
+      CHECK_AND_FILL_FEATURE(cTglTglMFT2, mftprop2.getCovariances()(3, 3));
+      CHECK_AND_FILL_FEATURE(c1PtXMFT2, mftprop2.getCovariances()(0, 4));
+      CHECK_AND_FILL_FEATURE(c1PtYMFT2, mftprop2.getCovariances()(1, 4));
+      CHECK_AND_FILL_FEATURE(c1PtPhiMFT2, mftprop2.getCovariances()(2, 4));
+      CHECK_AND_FILL_FEATURE(c1PtTglMFT2, mftprop2.getCovariances()(3, 4));
+      CHECK_AND_FILL_FEATURE(c1Pt21Pt2MFT2, mftprop2.getCovariances()(4, 4));
+      // MCH2 covariances
+      CHECK_AND_FILL_FEATURE(cXXMCH2, mchprop2.getCovariances()(0, 0));
+      CHECK_AND_FILL_FEATURE(cXYMCH2, mchprop2.getCovariances()(0, 1));
+      CHECK_AND_FILL_FEATURE(cYYMCH2, mchprop2.getCovariances()(1, 1));
+      CHECK_AND_FILL_FEATURE(cPhiXMCH2, mchprop2.getCovariances()(0, 2));
+      CHECK_AND_FILL_FEATURE(cPhiYMCH2, mchprop2.getCovariances()(1, 2));
+      CHECK_AND_FILL_FEATURE(cPhiPhiMCH2, mchprop2.getCovariances()(2, 2));
+      CHECK_AND_FILL_FEATURE(cTglXMCH2, mchprop2.getCovariances()(0, 3));
+      CHECK_AND_FILL_FEATURE(cTglYMCH2, mchprop2.getCovariances()(1, 3));
+      CHECK_AND_FILL_FEATURE(cTglPhiMCH2, mchprop2.getCovariances()(2, 3));
+      CHECK_AND_FILL_FEATURE(cTglTglMCH2, mchprop2.getCovariances()(3, 3));
+      CHECK_AND_FILL_FEATURE(c1PtXMCH2, mchprop2.getCovariances()(0, 4));
+      CHECK_AND_FILL_FEATURE(c1PtYMCH2, mchprop2.getCovariances()(1, 4));
+      CHECK_AND_FILL_FEATURE(c1PtPhiMCH2, mchprop2.getCovariances()(2, 4));
+      CHECK_AND_FILL_FEATURE(c1PtTglMCH2, mchprop2.getCovariances()(3, 4));
+      CHECK_AND_FILL_FEATURE(c1Pt21Pt2MCH2, mchprop2.getCovariances()(4, 4));
+      // Track residuals
+      // CHECK_AND_FILL_FEATURE(sameSign, (mch.sign() == mft.sign()) ? 1 : 0);
+      CHECK_AND_FILL_FEATURE(deltaX2, mchprop2.getX() - mftprop2.getX());
+      CHECK_AND_FILL_FEATURE(deltaY2, mchprop2.getY() - mftprop2.getY());
+      CHECK_AND_FILL_FEATURE(deltaPhi2, mchprop2.getPhi() - mftprop2.getPhi());
+      CHECK_AND_FILL_FEATURE(deltaTgl2, mchprop2.getTgl() - mftprop2.getTgl());
+      CHECK_AND_FILL_FEATURE(deltaEta2, mchprop2.getEta() - mftprop2.getEta());
+      CHECK_AND_FILL_FEATURE(delta1Pt2, mchprop2.getInvQPt() - mftprop2.getInvQPt());
+      CHECK_AND_FILL_FEATURE(deltaPt2, mchprop2.getPt() - mftprop2.getPt());
+      CHECK_AND_FILL_FEATURE(deltaP2, mchprop2.getP() - mftprop2.getP());
+      CHECK_AND_FILL_FEATURE(deltaR2, getDeltaR(mftprop2, mchprop2));
+      CHECK_AND_FILL_FEATURE(deltaDirection2, getDeltaDirection(mftprop2, mchprop2));
+      CHECK_AND_FILL_FEATURE(deltaPtRel2, getRelDifference(mftprop2.getPt(), mchprop2.getPt()));
+      CHECK_AND_FILL_FEATURE(deltaPRel2, getRelDifference(mftprop2.getP(), mchprop2.getP()));
+      CHECK_AND_FILL_FEATURE(pullX2, getPull(mftprop2.getX(), mftprop2.getCovariances()(0, 0), mchprop2.getX(), mchprop2.getCovariances()(0, 0)));
+      CHECK_AND_FILL_FEATURE(pullY2, getPull(mftprop2.getY(), mftprop2.getCovariances()(1, 1), mchprop2.getY(), mchprop2.getCovariances()(1, 1)));
+      CHECK_AND_FILL_FEATURE(pullPhi2, getPull(mftprop2.getPhi(), mftprop2.getCovariances()(2, 2), mchprop2.getPhi(), mchprop2.getCovariances()(2, 2)));
+      CHECK_AND_FILL_FEATURE(pullTgl2, getPull(mftprop2.getTgl(), mftprop2.getCovariances()(3, 3), mchprop2.getTgl(), mchprop2.getCovariances()(3, 3)));
+      // /*dummy value*/ CHECK_AND_FILL_FEATURE(pullEta2, 0);
+      CHECK_AND_FILL_FEATURE(pullPt2, getPullPt(mftprop2, mchprop2));
+      CHECK_AND_FILL_FEATURE(pullR2, getPullR(mftprop2, mchprop2));
+      // Track residuals (absolute values)
+      CHECK_AND_FILL_FEATURE(absDeltaX2, std::fabs(mchprop2.getX() - mftprop2.getX()));
+      CHECK_AND_FILL_FEATURE(absDeltaY2, std::fabs(mchprop2.getY() - mftprop2.getY()));
+      CHECK_AND_FILL_FEATURE(absDeltaPhi2, std::fabs(mchprop2.getPhi() - mftprop2.getPhi()));
+      CHECK_AND_FILL_FEATURE(absDeltaTgl2, std::fabs(mchprop2.getTgl() - mftprop2.getTgl()));
+      CHECK_AND_FILL_FEATURE(absDeltaEta2, std::fabs(mchprop2.getEta() - mftprop2.getEta()));
+      CHECK_AND_FILL_FEATURE(absDeltaPt2, std::fabs(mchprop2.getPt() - mftprop2.getPt()));
+      CHECK_AND_FILL_FEATURE(absDeltaP2, std::fabs(mchprop2.getP() - mftprop2.getP()));
+      CHECK_AND_FILL_FEATURE(absDeltaR2, std::fabs(getDeltaR(mftprop2, mchprop2)));
+      CHECK_AND_FILL_FEATURE(absDeltaDirection2, std::fabs(getDeltaDirection(mftprop2, mchprop2)));
+      CHECK_AND_FILL_FEATURE(absDeltaPtRel2, std::fabs(getRelDifference(mftprop2.getPt(), mchprop2.getPt())));
+      CHECK_AND_FILL_FEATURE(absPullX2, std::fabs(getPull(mftprop2.getX(), mftprop2.getCovariances()(0, 0), mchprop2.getX(), mchprop2.getCovariances()(0, 0))));
+      CHECK_AND_FILL_FEATURE(absPullY2, std::fabs(getPull(mftprop2.getY(), mftprop2.getCovariances()(1, 1), mchprop2.getY(), mchprop2.getCovariances()(1, 1))));
+      CHECK_AND_FILL_FEATURE(absPullPhi2, std::fabs(getPull(mftprop2.getPhi(), mftprop2.getCovariances()(2, 2), mchprop2.getPhi(), mchprop2.getCovariances()(2, 2))));
+      CHECK_AND_FILL_FEATURE(absPullTgl2, std::fabs(getPull(mftprop2.getTgl(), mftprop2.getCovariances()(3, 3), mchprop2.getTgl(), mchprop2.getCovariances()(3, 3))));
+      // /*dummy value*/ CHECK_AND_FILL_FEATURE(absPullEta2, 0);
+      CHECK_AND_FILL_FEATURE(absPullPt2, std::fabs(getPullPt(mftprop2, mchprop2)));
+      CHECK_AND_FILL_FEATURE(absPullR2, std::fabs(getPullR(mftprop2, mchprop2)));
+      // primary vertex parameters
+      // CHECK_AND_FILL_FEATURE(posX, collision.posX());
+      // CHECK_AND_FILL_FEATURE(posY, collision.posY());
+      // CHECK_AND_FILL_FEATURE(posZ, collision.posZ());
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(numContrib, collision, numContrib);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(trackOccupancyInTimeRange, collision, trackOccupancyInTimeRange);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(ft0cOccupancyInTimeRange, collision, ft0cOccupancyInTimeRange);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(multMFT2, collision, mftNtracks);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(multFT0A, collision, multFT0A);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(multFT0C, collision, multFT0C);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(multNTracksPV, collision, multNTracksPV);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(multNTracksPVeta1, collision, multNTracksPVeta1);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(multNTracksPVetaHalf, collision, multNTracksPVetaHalf);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(isInelGt0, collision, isInelGt0);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(isInelGt1, collision, isInelGt1);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(multFT0M, collision, multFT0M);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(centFT0M, collision, centFT0M);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(centFT0A, collision, centFT0A);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(centFT0C, collision, centFT0C);
+      // global forward track parameters
+      // CHECK_AND_FILL_FEATURE(chi2MCH2MFT2, muon.chi2MatchMCH2MFT2());
+      // CHECK_AND_FILL_FEATURE(chi2GlobMUON, muon.chi2());
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(dcaX, muon, fwdDcaX);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(dcaY, muon, fwdDcaY);
+      // CHECK_AND_FILL_FEATURE_OPTIONAL(isAmbig, muon, compatibleCollIds, (muon.compatibleCollIds().size() == 1) ? 0 : 1)
+
+      ;
     }
     return inputFeature;
   }
@@ -425,7 +689,21 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
   {
     std::vector<float> inputFeatures;
     for (const auto& idx : MlResponse<TypeOutputScore>::mCachedIndices) {
-      float inputFeature = returnFeature(idx, muon, mft, mch, mftprop, mchprop, collision);
+      float inputFeature = returnFeature(idx, muon, mft, mch, mftprop, mchprop, mftprop, mchprop, collision);
+      inputFeatures.emplace_back(inputFeature);
+    }
+    return inputFeatures;
+  }
+
+  /// Method to get the input features vector needed for ML inference with 2 matching planes
+  /// \param track is the single track, \param collision is the collision
+  /// \return inputFeatures vector
+  template <typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename U>
+  std::vector<float> getInputFeatures(T1 const& muon, T2 const& mft, T3 const& mch, T4 const& mftprop, T5 const& mchprop, T6 const& mftprop2, T7 const& mchprop2, U const& collision)
+  {
+    std::vector<float> inputFeatures;
+    for (const auto& idx : MlResponse<TypeOutputScore>::mCachedIndices) {
+      float inputFeature = returnFeature(idx, muon, mft, mch, mftprop, mchprop, mftprop2, mchprop2, collision);
       inputFeatures.emplace_back(inputFeature);
     }
     return inputFeatures;
@@ -584,7 +862,138 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       FILL_MAP_MFTMUON_MATCH(chi2GlobMUON),
       FILL_MAP_MFTMUON_MATCH(dcaX),
       FILL_MAP_MFTMUON_MATCH(dcaY),
-      FILL_MAP_MFTMUON_MATCH(isAmbig)};
+      FILL_MAP_MFTMUON_MATCH(isAmbig),
+      // Matching plane 2 parameters
+      FILL_MAP_MFTMUON_MATCH(zMatching2),
+      // MFT track parameters
+      FILL_MAP_MFTMUON_MATCH(xMFT2),
+      FILL_MAP_MFTMUON_MATCH(yMFT2),
+      FILL_MAP_MFTMUON_MATCH(qOverptMFT2),
+      FILL_MAP_MFTMUON_MATCH(tglMFT2),
+      FILL_MAP_MFTMUON_MATCH(phiMFT2),
+      FILL_MAP_MFTMUON_MATCH(ptMFT2),
+      FILL_MAP_MFTMUON_MATCH(pMFT2),
+      FILL_MAP_MFTMUON_MATCH(etaMFT2),
+      // FILL_MAP_MFTMUON_MATCH(timeMFT),
+      // FILL_MAP_MFTMUON_MATCH(timeResMFT),
+      // FILL_MAP_MFTMUON_MATCH(dcaXY),
+      // FILL_MAP_MFTMUON_MATCH(dcaZ),
+      // FILL_MAP_MFTMUON_MATCH(chi2MFT),
+      // FILL_MAP_MFTMUON_MATCH(clusterSizesAndTrackFlagsMFT),
+      // FILL_MAP_MFTMUON_MATCH(trackTypeMFT),
+      // FILL_MAP_MFTMUON_MATCH(nClustersMFT),
+      // MCH track parameters
+      FILL_MAP_MFTMUON_MATCH(xMCH2),
+      FILL_MAP_MFTMUON_MATCH(yMCH2),
+      FILL_MAP_MFTMUON_MATCH(qOverptMCH2),
+      FILL_MAP_MFTMUON_MATCH(tglMCH2),
+      FILL_MAP_MFTMUON_MATCH(phiMCH2),
+      // FILL_MAP_MFTMUON_MATCH(nClustersMCH),
+      FILL_MAP_MFTMUON_MATCH(ptMCH2),
+      FILL_MAP_MFTMUON_MATCH(pMCH2),
+      FILL_MAP_MFTMUON_MATCH(etaMCH2),
+      // FILL_MAP_MFTMUON_MATCH(timeMCH),
+      // FILL_MAP_MFTMUON_MATCH(timeResMCH),
+      // FILL_MAP_MFTMUON_MATCH(chi2MCH),
+      // FILL_MAP_MFTMUON_MATCH(pdca),
+      // FILL_MAP_MFTMUON_MATCH(Rabs),
+      // MFT covariances
+      FILL_MAP_MFTMUON_MATCH(cXXMFT2),
+      FILL_MAP_MFTMUON_MATCH(cXYMFT2),
+      FILL_MAP_MFTMUON_MATCH(cYYMFT2),
+      FILL_MAP_MFTMUON_MATCH(cPhiYMFT2),
+      FILL_MAP_MFTMUON_MATCH(cPhiXMFT2),
+      FILL_MAP_MFTMUON_MATCH(cPhiPhiMFT2),
+      FILL_MAP_MFTMUON_MATCH(cTglYMFT2),
+      FILL_MAP_MFTMUON_MATCH(cTglXMFT2),
+      FILL_MAP_MFTMUON_MATCH(cTglPhiMFT2),
+      FILL_MAP_MFTMUON_MATCH(cTglTglMFT2),
+      FILL_MAP_MFTMUON_MATCH(c1PtYMFT2),
+      FILL_MAP_MFTMUON_MATCH(c1PtXMFT2),
+      FILL_MAP_MFTMUON_MATCH(c1PtPhiMFT2),
+      FILL_MAP_MFTMUON_MATCH(c1PtTglMFT2),
+      FILL_MAP_MFTMUON_MATCH(c1Pt21Pt2MFT2),
+      // MCH covariances
+      FILL_MAP_MFTMUON_MATCH(cXXMCH2),
+      FILL_MAP_MFTMUON_MATCH(cXYMCH2),
+      FILL_MAP_MFTMUON_MATCH(cYYMCH2),
+      FILL_MAP_MFTMUON_MATCH(cPhiYMCH2),
+      FILL_MAP_MFTMUON_MATCH(cPhiXMCH2),
+      FILL_MAP_MFTMUON_MATCH(cPhiPhiMCH2),
+      FILL_MAP_MFTMUON_MATCH(cTglYMCH2),
+      FILL_MAP_MFTMUON_MATCH(cTglXMCH2),
+      FILL_MAP_MFTMUON_MATCH(cTglPhiMCH2),
+      FILL_MAP_MFTMUON_MATCH(cTglTglMCH2),
+      FILL_MAP_MFTMUON_MATCH(c1PtYMCH2),
+      FILL_MAP_MFTMUON_MATCH(c1PtXMCH2),
+      FILL_MAP_MFTMUON_MATCH(c1PtPhiMCH2),
+      FILL_MAP_MFTMUON_MATCH(c1PtTglMCH2),
+      FILL_MAP_MFTMUON_MATCH(c1Pt21Pt2MCH2),
+      // track residuals
+      // FILL_MAP_MFTMUON_MATCH(sameSign),
+      FILL_MAP_MFTMUON_MATCH(deltaX2),
+      FILL_MAP_MFTMUON_MATCH(deltaY2),
+      FILL_MAP_MFTMUON_MATCH(deltaPhi2),
+      FILL_MAP_MFTMUON_MATCH(deltaTgl2),
+      FILL_MAP_MFTMUON_MATCH(deltaEta2),
+      FILL_MAP_MFTMUON_MATCH(deltaPt2),
+      FILL_MAP_MFTMUON_MATCH(delta1Pt2),
+      FILL_MAP_MFTMUON_MATCH(deltaP2),
+      FILL_MAP_MFTMUON_MATCH(deltaR2),
+      FILL_MAP_MFTMUON_MATCH(deltaDirection2),
+      FILL_MAP_MFTMUON_MATCH(pullX2),
+      FILL_MAP_MFTMUON_MATCH(pullY2),
+      FILL_MAP_MFTMUON_MATCH(pullPhi2),
+      FILL_MAP_MFTMUON_MATCH(pullTgl2),
+      FILL_MAP_MFTMUON_MATCH(pullEta2),
+      FILL_MAP_MFTMUON_MATCH(pullPt2),
+      FILL_MAP_MFTMUON_MATCH(pullR2),
+      FILL_MAP_MFTMUON_MATCH(deltaPtRel2),
+      FILL_MAP_MFTMUON_MATCH(deltaPRel2),
+      // track residuals (absolute values)
+      FILL_MAP_MFTMUON_MATCH(absDeltaX2),
+      FILL_MAP_MFTMUON_MATCH(absDeltaY2),
+      FILL_MAP_MFTMUON_MATCH(absDeltaPhi2),
+      FILL_MAP_MFTMUON_MATCH(absDeltaTgl2),
+      FILL_MAP_MFTMUON_MATCH(absDeltaEta2),
+      FILL_MAP_MFTMUON_MATCH(absDeltaPt2),
+      FILL_MAP_MFTMUON_MATCH(absDeltaP2),
+      FILL_MAP_MFTMUON_MATCH(absDeltaR2),
+      FILL_MAP_MFTMUON_MATCH(absDeltaDirection2),
+      FILL_MAP_MFTMUON_MATCH(absPullX2),
+      FILL_MAP_MFTMUON_MATCH(absPullY2),
+      FILL_MAP_MFTMUON_MATCH(absPullPhi2),
+      FILL_MAP_MFTMUON_MATCH(absPullTgl2),
+      FILL_MAP_MFTMUON_MATCH(absPullEta2),
+      FILL_MAP_MFTMUON_MATCH(absPullPt2),
+      FILL_MAP_MFTMUON_MATCH(absPullR2),
+      FILL_MAP_MFTMUON_MATCH(absDeltaPtRel2),
+      // primary vertex parameters
+      // FILL_MAP_MFTMUON_MATCH(posX),
+      // FILL_MAP_MFTMUON_MATCH(posY),
+      // FILL_MAP_MFTMUON_MATCH(posZ),
+      // FILL_MAP_MFTMUON_MATCH(numContrib),
+      // FILL_MAP_MFTMUON_MATCH(trackOccupancyInTimeRange),
+      // FILL_MAP_MFTMUON_MATCH(ft0cOccupancyInTimeRange),
+      // FILL_MAP_MFTMUON_MATCH(multMFT),
+      // FILL_MAP_MFTMUON_MATCH(multFT0A),
+      // FILL_MAP_MFTMUON_MATCH(multFT0C),
+      // FILL_MAP_MFTMUON_MATCH(multNTracksPV),
+      // FILL_MAP_MFTMUON_MATCH(multNTracksPVeta1),
+      // FILL_MAP_MFTMUON_MATCH(multNTracksPVetaHalf),
+      // FILL_MAP_MFTMUON_MATCH(isInelGt0),
+      // FILL_MAP_MFTMUON_MATCH(isInelGt1),
+      // FILL_MAP_MFTMUON_MATCH(multFT0M),
+      // FILL_MAP_MFTMUON_MATCH(centFT0M),
+      // FILL_MAP_MFTMUON_MATCH(centFT0A),
+      // FILL_MAP_MFTMUON_MATCH(centFT0C),
+      // // global forward track parameters
+      // FILL_MAP_MFTMUON_MATCH(chi2MCHMFT),
+      // FILL_MAP_MFTMUON_MATCH(chi2GlobMUON),
+      // FILL_MAP_MFTMUON_MATCH(dcaX),
+      // FILL_MAP_MFTMUON_MATCH(dcaY),
+      // FILL_MAP_MFTMUON_MATCH(isAmbig)
+    };
   }
 
   uint8_t mCachedIndexBinning; // index correspondance between configurable and available input features
