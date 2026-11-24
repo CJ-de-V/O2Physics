@@ -3419,10 +3419,8 @@ struct QaMatching {
 
         std::vector<float> inputML;
         if (matchingPlane2Z < 0.f) {
-          // For 2 plane matching we still use plane 1 for the metric plotting, i.e. store plane1's prop'd tracks
           mftTrackProp2 = propagateToZMft(mftTrackProp, matchingPlane2Z);
           mchTrackProp2 = propagateToZMch(mchTrackProp, matchingPlane2Z);
-          // TODO: confirm proper interfacing with mlresponse
           inputML = mlResponse.getInputFeatures(muonTrack, mftTrack, mchTrack, mftTrackProp, mchTrackProp, mftTrackProp2, mchTrackProp2, collision);
         } else {
           inputML = mlResponse.getInputFeatures(muonTrack, mftTrack, mchTrack, mftTrackProp, mchTrackProp, collision);

@@ -211,7 +211,7 @@ enum class InputFeaturesMFTMuonMatch : uint8_t {
   dcaX,
   dcaY,
   isAmbig,
-  // matching parameters for second matching plane
+  // plane 2
   zMatching2,
   // MFT track parameters
   xMFT2,
@@ -222,14 +222,6 @@ enum class InputFeaturesMFTMuonMatch : uint8_t {
   ptMFT2,
   pMFT2,
   etaMFT2,
-  // timeMFT2,
-  // timeResMFT2,
-  // clusterSizesAndTrackFlagsMFT2,
-  // trackTypeMFT2,
-  // dcaXY2,
-  // dcaZ2,
-  // chi2MFT2,
-  // nClustersMFT2,
   // MCH track parameters
   xMCH2,
   yMCH2,
@@ -239,12 +231,6 @@ enum class InputFeaturesMFTMuonMatch : uint8_t {
   ptMCH2,
   pMCH2,
   etaMCH2,
-  // timeMCH2,
-  // timeResMCH2,
-  // nClustersMCH2,
-  // chi2MCH2,
-  // pdca2,
-  // Rabs2,
   // MFT covariances
   cXXMFT2,
   cXYMFT2,
@@ -315,32 +301,7 @@ enum class InputFeaturesMFTMuonMatch : uint8_t {
   absPullEta2,
   absPullPt2,
   absPullR2,
-  absDeltaPtRel2,
-  // primary vertex parameters
-  // posX2,
-  // posY2,
-  // posZ2,
-  // numContrib2,
-  // trackOccupancyInTimeRange2,
-  // ft0cOccupancyInTimeRange2,
-  // multMFT2,
-  // multFT0A2,
-  // multFT0C2,
-  // multNTracksPV2,
-  // multNTracksPVeta12,
-  // multNTracksPVetaHalf2,
-  // isInelGt02,
-  // isInelGt12,
-  // multFT0M2,
-  // centFT0M2,
-  // centFT0A2,
-  // centFT0C2,
-  // // global forward track parameters
-  // chi2MCHMFT2,
-  // chi2GlobMUON2,
-  // dcaX2,
-  // dcaY2,
-  // isAmbig2,
+  absDeltaPtRel2
 };
 
 template <typename T1, typename T2>
@@ -543,9 +504,7 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       CHECK_AND_FILL_FEATURE_OPTIONAL(dcaX, muon, fwdDcaX);
       CHECK_AND_FILL_FEATURE_OPTIONAL(dcaY, muon, fwdDcaY);
       CHECK_AND_FILL_FEATURE_OPTIONAL(isAmbig, muon, compatibleCollIds, (muon.compatibleCollIds().size() == 1) ? 0 : 1)
-
       // plane 2
-      // matching parameters
       CHECK_AND_FILL_FEATURE(zMatching2, mftprop2.getZ());
       // MFT2 track parameters
       CHECK_AND_FILL_FEATURE(xMFT2, mftprop2.getX());
@@ -553,17 +512,9 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       CHECK_AND_FILL_FEATURE(qOverptMFT2, mftprop2.getInvQPt());
       CHECK_AND_FILL_FEATURE(tglMFT2, mftprop2.getTanl());
       CHECK_AND_FILL_FEATURE(phiMFT2, mftprop2.getPhi());
-      // CHECK_AND_FILL_FEATURE(chi2MFT2, mft.chi2());
-      // CHECK_AND_FILL_FEATURE(nClustersMFT2, mft.nClusters());
-      // /*dummy value*/ CHECK_AND_FILL_FEATURE(dcaXY, 0);
-      // /*dummy value*/ CHECK_AND_FILL_FEATURE(dcaZ, 0);
       CHECK_AND_FILL_FEATURE(ptMFT2, mftprop2.getPt());
       CHECK_AND_FILL_FEATURE(pMFT2, mftprop2.getP());
       CHECK_AND_FILL_FEATURE(etaMFT2, mftprop2.getEta());
-      // CHECK_AND_FILL_FEATURE(timeMFT2, mft.trackTime());
-      // CHECK_AND_FILL_FEATURE(timeResMFT2, mft.trackTimeRes());
-      // CHECK_AND_FILL_FEATURE(clusterSizesAndTrackFlagsMFT2, mft.mftClusterSizesAndTrackFlags());
-      // CHECK_AND_FILL_FEATURE(trackTypeMFT2, (mft.isCA() ? 1 : 0));
       // MCH2 track parameters
       CHECK_AND_FILL_FEATURE(xMCH2, mchprop2.getX());
       CHECK_AND_FILL_FEATURE(yMCH2, mchprop2.getY());
@@ -572,13 +523,7 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       CHECK_AND_FILL_FEATURE(phiMCH2, mchprop2.getPhi());
       CHECK_AND_FILL_FEATURE(ptMCH2, mchprop2.getPt());
       CHECK_AND_FILL_FEATURE(pMCH2, mchprop2.getP());
-      // CHECK_AND_FILL_FEATURE(etaMCH2, mchprop2.getEta());
-      // CHECK_AND_FILL_FEATURE(timeMCH2, mch.trackTime());
-      // CHECK_AND_FILL_FEATURE(timeResMCH2, mch.trackTimeRes());
-      // CHECK_AND_FILL_FEATURE(nClustersMCH2, mch.nClusters());
-      // CHECK_AND_FILL_FEATURE(chi2MCH2, mch.chi2());
-      // CHECK_AND_FILL_FEATURE(pdca, muon.pDca());
-      // CHECK_AND_FILL_FEATURE(Rabs, muon.rAtAbsorberEnd());
+      CHECK_AND_FILL_FEATURE(etaMCH2, mchprop2.getEta());
       // MFT2 covariances
       CHECK_AND_FILL_FEATURE(cXXMFT2, mftprop2.getCovariances()(0, 0));
       CHECK_AND_FILL_FEATURE(cXYMFT2, mftprop2.getCovariances()(0, 1));
@@ -612,7 +557,6 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       CHECK_AND_FILL_FEATURE(c1PtTglMCH2, mchprop2.getCovariances()(3, 4));
       CHECK_AND_FILL_FEATURE(c1Pt21Pt2MCH2, mchprop2.getCovariances()(4, 4));
       // Track residuals
-      // CHECK_AND_FILL_FEATURE(sameSign, (mch.sign() == mft.sign()) ? 1 : 0);
       CHECK_AND_FILL_FEATURE(deltaX2, mchprop2.getX() - mftprop2.getX());
       CHECK_AND_FILL_FEATURE(deltaY2, mchprop2.getY() - mftprop2.getY());
       CHECK_AND_FILL_FEATURE(deltaPhi2, mchprop2.getPhi() - mftprop2.getPhi());
@@ -629,7 +573,6 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       CHECK_AND_FILL_FEATURE(pullY2, getPull(mftprop2.getY(), mftprop2.getCovariances()(1, 1), mchprop2.getY(), mchprop2.getCovariances()(1, 1)));
       CHECK_AND_FILL_FEATURE(pullPhi2, getPull(mftprop2.getPhi(), mftprop2.getCovariances()(2, 2), mchprop2.getPhi(), mchprop2.getCovariances()(2, 2)));
       CHECK_AND_FILL_FEATURE(pullTgl2, getPull(mftprop2.getTgl(), mftprop2.getCovariances()(3, 3), mchprop2.getTgl(), mchprop2.getCovariances()(3, 3)));
-      // /*dummy value*/ CHECK_AND_FILL_FEATURE(pullEta2, 0);
       CHECK_AND_FILL_FEATURE(pullPt2, getPullPt(mftprop2, mchprop2));
       CHECK_AND_FILL_FEATURE(pullR2, getPullR(mftprop2, mchprop2));
       // Track residuals (absolute values)
@@ -647,36 +590,8 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       CHECK_AND_FILL_FEATURE(absPullY2, std::fabs(getPull(mftprop2.getY(), mftprop2.getCovariances()(1, 1), mchprop2.getY(), mchprop2.getCovariances()(1, 1))));
       CHECK_AND_FILL_FEATURE(absPullPhi2, std::fabs(getPull(mftprop2.getPhi(), mftprop2.getCovariances()(2, 2), mchprop2.getPhi(), mchprop2.getCovariances()(2, 2))));
       CHECK_AND_FILL_FEATURE(absPullTgl2, std::fabs(getPull(mftprop2.getTgl(), mftprop2.getCovariances()(3, 3), mchprop2.getTgl(), mchprop2.getCovariances()(3, 3))));
-      // /*dummy value*/ CHECK_AND_FILL_FEATURE(absPullEta2, 0);
       CHECK_AND_FILL_FEATURE(absPullPt2, std::fabs(getPullPt(mftprop2, mchprop2)));
       CHECK_AND_FILL_FEATURE(absPullR2, std::fabs(getPullR(mftprop2, mchprop2)));
-      // primary vertex parameters
-      // CHECK_AND_FILL_FEATURE(posX, collision.posX());
-      // CHECK_AND_FILL_FEATURE(posY, collision.posY());
-      // CHECK_AND_FILL_FEATURE(posZ, collision.posZ());
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(numContrib, collision, numContrib);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(trackOccupancyInTimeRange, collision, trackOccupancyInTimeRange);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(ft0cOccupancyInTimeRange, collision, ft0cOccupancyInTimeRange);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(multMFT2, collision, mftNtracks);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(multFT0A, collision, multFT0A);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(multFT0C, collision, multFT0C);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(multNTracksPV, collision, multNTracksPV);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(multNTracksPVeta1, collision, multNTracksPVeta1);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(multNTracksPVetaHalf, collision, multNTracksPVetaHalf);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(isInelGt0, collision, isInelGt0);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(isInelGt1, collision, isInelGt1);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(multFT0M, collision, multFT0M);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(centFT0M, collision, centFT0M);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(centFT0A, collision, centFT0A);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(centFT0C, collision, centFT0C);
-      // global forward track parameters
-      // CHECK_AND_FILL_FEATURE(chi2MCH2MFT2, muon.chi2MatchMCH2MFT2());
-      // CHECK_AND_FILL_FEATURE(chi2GlobMUON, muon.chi2());
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(dcaX, muon, fwdDcaX);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(dcaY, muon, fwdDcaY);
-      // CHECK_AND_FILL_FEATURE_OPTIONAL(isAmbig, muon, compatibleCollIds, (muon.compatibleCollIds().size() == 1) ? 0 : 1)
-
-      ;
     }
     return inputFeature;
   }
@@ -863,7 +778,7 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       FILL_MAP_MFTMUON_MATCH(dcaX),
       FILL_MAP_MFTMUON_MATCH(dcaY),
       FILL_MAP_MFTMUON_MATCH(isAmbig),
-      // Matching plane 2 parameters
+      // plane2
       FILL_MAP_MFTMUON_MATCH(zMatching2),
       // MFT track parameters
       FILL_MAP_MFTMUON_MATCH(xMFT2),
@@ -874,29 +789,15 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       FILL_MAP_MFTMUON_MATCH(ptMFT2),
       FILL_MAP_MFTMUON_MATCH(pMFT2),
       FILL_MAP_MFTMUON_MATCH(etaMFT2),
-      // FILL_MAP_MFTMUON_MATCH(timeMFT),
-      // FILL_MAP_MFTMUON_MATCH(timeResMFT),
-      // FILL_MAP_MFTMUON_MATCH(dcaXY),
-      // FILL_MAP_MFTMUON_MATCH(dcaZ),
-      // FILL_MAP_MFTMUON_MATCH(chi2MFT),
-      // FILL_MAP_MFTMUON_MATCH(clusterSizesAndTrackFlagsMFT),
-      // FILL_MAP_MFTMUON_MATCH(trackTypeMFT),
-      // FILL_MAP_MFTMUON_MATCH(nClustersMFT),
       // MCH track parameters
       FILL_MAP_MFTMUON_MATCH(xMCH2),
       FILL_MAP_MFTMUON_MATCH(yMCH2),
       FILL_MAP_MFTMUON_MATCH(qOverptMCH2),
       FILL_MAP_MFTMUON_MATCH(tglMCH2),
       FILL_MAP_MFTMUON_MATCH(phiMCH2),
-      // FILL_MAP_MFTMUON_MATCH(nClustersMCH),
       FILL_MAP_MFTMUON_MATCH(ptMCH2),
       FILL_MAP_MFTMUON_MATCH(pMCH2),
       FILL_MAP_MFTMUON_MATCH(etaMCH2),
-      // FILL_MAP_MFTMUON_MATCH(timeMCH),
-      // FILL_MAP_MFTMUON_MATCH(timeResMCH),
-      // FILL_MAP_MFTMUON_MATCH(chi2MCH),
-      // FILL_MAP_MFTMUON_MATCH(pdca),
-      // FILL_MAP_MFTMUON_MATCH(Rabs),
       // MFT covariances
       FILL_MAP_MFTMUON_MATCH(cXXMFT2),
       FILL_MAP_MFTMUON_MATCH(cXYMFT2),
@@ -930,7 +831,6 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       FILL_MAP_MFTMUON_MATCH(c1PtTglMCH2),
       FILL_MAP_MFTMUON_MATCH(c1Pt21Pt2MCH2),
       // track residuals
-      // FILL_MAP_MFTMUON_MATCH(sameSign),
       FILL_MAP_MFTMUON_MATCH(deltaX2),
       FILL_MAP_MFTMUON_MATCH(deltaY2),
       FILL_MAP_MFTMUON_MATCH(deltaPhi2),
@@ -967,33 +867,7 @@ class MlResponseMFTMuonMatch : public MlResponse<TypeOutputScore>
       FILL_MAP_MFTMUON_MATCH(absPullEta2),
       FILL_MAP_MFTMUON_MATCH(absPullPt2),
       FILL_MAP_MFTMUON_MATCH(absPullR2),
-      FILL_MAP_MFTMUON_MATCH(absDeltaPtRel2),
-      // primary vertex parameters
-      // FILL_MAP_MFTMUON_MATCH(posX),
-      // FILL_MAP_MFTMUON_MATCH(posY),
-      // FILL_MAP_MFTMUON_MATCH(posZ),
-      // FILL_MAP_MFTMUON_MATCH(numContrib),
-      // FILL_MAP_MFTMUON_MATCH(trackOccupancyInTimeRange),
-      // FILL_MAP_MFTMUON_MATCH(ft0cOccupancyInTimeRange),
-      // FILL_MAP_MFTMUON_MATCH(multMFT),
-      // FILL_MAP_MFTMUON_MATCH(multFT0A),
-      // FILL_MAP_MFTMUON_MATCH(multFT0C),
-      // FILL_MAP_MFTMUON_MATCH(multNTracksPV),
-      // FILL_MAP_MFTMUON_MATCH(multNTracksPVeta1),
-      // FILL_MAP_MFTMUON_MATCH(multNTracksPVetaHalf),
-      // FILL_MAP_MFTMUON_MATCH(isInelGt0),
-      // FILL_MAP_MFTMUON_MATCH(isInelGt1),
-      // FILL_MAP_MFTMUON_MATCH(multFT0M),
-      // FILL_MAP_MFTMUON_MATCH(centFT0M),
-      // FILL_MAP_MFTMUON_MATCH(centFT0A),
-      // FILL_MAP_MFTMUON_MATCH(centFT0C),
-      // // global forward track parameters
-      // FILL_MAP_MFTMUON_MATCH(chi2MCHMFT),
-      // FILL_MAP_MFTMUON_MATCH(chi2GlobMUON),
-      // FILL_MAP_MFTMUON_MATCH(dcaX),
-      // FILL_MAP_MFTMUON_MATCH(dcaY),
-      // FILL_MAP_MFTMUON_MATCH(isAmbig)
-    };
+      FILL_MAP_MFTMUON_MATCH(absDeltaPtRel2)};
   }
 
   uint8_t mCachedIndexBinning; // index correspondance between configurable and available input features
