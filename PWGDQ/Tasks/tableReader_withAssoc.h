@@ -68,6 +68,7 @@
 #include <RtypesCore.h>
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -78,6 +79,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -290,6 +292,7 @@ using MyMuonTracksWithCov = o2::soa::Join<o2::aod::ReducedMuons, o2::aod::Reduce
 using MyMuonTracksWithCovWithAmbiguities = o2::soa::Join<o2::aod::ReducedMuons, o2::aod::ReducedMuonsExtra, o2::aod::ReducedMuonsCov, o2::aod::MuonAmbiguities>;
 using MyMuonTracksSelectedWithColl = o2::soa::Join<o2::aod::ReducedMuons, o2::aod::ReducedMuonsExtra, o2::aod::ReducedMuonsInfo, o2::aod::MuonTrackCuts>;
 
+constexpr static uint32_t gkEventFillMapWithCovQvectorCentr = VarManager::ObjTypes::ReducedEvent | VarManager::ObjTypes::ReducedEventExtended | VarManager::ObjTypes::ReducedEventVtxCov | VarManager::ObjTypes::CollisionQvect | VarManager::ObjTypes::ReducedEventMultExtra;
 // bit maps used for the Fill functions of the VarManager
 constexpr static uint32_t gkEventFillMap = VarManager::ObjTypes::ReducedEvent | VarManager::ObjTypes::ReducedEventExtended;
 constexpr static uint32_t gkEventFillMapWithZdc = VarManager::ObjTypes::ReducedEvent | VarManager::ObjTypes::ReducedEventExtended | VarManager::ReducedZdc;
@@ -339,6 +342,20 @@ void PrintBitMap(TMap map, int nbits)
     bits += ((map & (TMap(1) << i)) > 0 ? '1' : '0');
   }
   LOG(info) << bits;
+}
+
+// Function to compute the mu for pileup estimation, taken from EM code
+double calculateMu(const double interactionRate, const double nbc)
+{
+  // uint64_t timeStamp = bc.timestamp();
+  // auto grpmag = fCCDB->getForTimeStamp<o2::parameters::GRPMagField>(grpmagPath, events.begin().timestamp());
+  // auto grpo = fCCDB->getForTimeStamp<o2::parameters::GRPLHCIFData>(fConfigCCDB.GrpLhcIfPath, timestamp);
+  // auto bfilling = grpo->getBunchFilling();
+  // double nbc = bfilling.getFilledBCs().size();
+
+  double nTriggersPerFilledBC = (interactionRate * 1000) / nbc / o2::constants::lhc::LHCRevFreq;
+  double mu = -std::log(1 - nTriggersPerFilledBC);
+  return mu;
 }
 
 // Analysis task that produces event decisions (analysis cut, in bunch pileup and split collision check) and the Hash table used in event mixing
@@ -550,6 +567,12 @@ struct AnalysisEventSelection {
       // Get the instantaneous IR from the CCDB
       if (fConfigFetchInteractionRate.value) {
         VarManager::fgValues[VarManager::kInteractionRate] = rateFetcher.fetch(fCCDB.service, event.timestamp(), fCurrentRun, fConfigIRSource.value, true) / 1000.; // kHz
+        // Compute Mu
+        auto grpo = fCCDB->getForTimeStamp<o2::parameters::GRPLHCIFData>("GLO/Config/GRPLHCIF", event.timestamp());
+        auto bfilling = grpo->getBunchFilling();
+        double nbc = bfilling.getFilledBCs().size();
+        // IR is now in kHz, but in calcualteMu it is restored to Hz
+        VarManager::fgValues[VarManager::kMuPerBc] = calculateMu(VarManager::fgValues[VarManager::kInteractionRate], nbc);
       }
 
       bool decision = false;
@@ -802,7 +825,7 @@ struct AnalysisTrackSelection {
   o2::ccdb::CcdbApi fCCDBApi;
 
   HistogramManager* fHistMan = nullptr;
-  std::vector<AnalysisCompositeCut*> fTrackCuts;
+  std::vector<AnalysisCut*> fTrackCuts;
 
   int fCurrentRun = 0; // current run kept to detect run changes and trigger loading params from CCDB
 
@@ -830,7 +853,7 @@ struct AnalysisTrackSelection {
     if (addTrackCutsStr != "") {
       std::vector<AnalysisCut*> addTrackCuts = o2::aod::dqcuts::GetCutsFromJSON(addTrackCutsStr.Data());
       for (auto const& t : addTrackCuts) {
-        fTrackCuts.push_back(reinterpret_cast<AnalysisCompositeCut*>(t));
+        fTrackCuts.push_back(t);
       }
     }
 
@@ -1084,7 +1107,7 @@ struct AnalysisMuonSelection {
   o2::framework::Service<o2::ccdb::BasicCCDBManager> fCCDB{};
 
   HistogramManager* fHistMan = nullptr;
-  std::vector<AnalysisCompositeCut*> fMuonCuts;
+  std::vector<AnalysisCut*> fMuonCuts;
 
   int fCurrentRun = 0; // current run kept to detect run changes and trigger loading params from CCDB
 
@@ -1111,7 +1134,7 @@ struct AnalysisMuonSelection {
     if (addCutsStr != "") {
       std::vector<AnalysisCut*> addCuts = o2::aod::dqcuts::GetCutsFromJSON(addCutsStr.Data());
       for (auto const& t : addCuts) {
-        fMuonCuts.push_back(dynamic_cast<AnalysisCompositeCut*>(t));
+        fMuonCuts.push_back(t);
       }
     }
 
@@ -1490,6 +1513,7 @@ struct AnalysisSameEventPairing {
   o2::framework::Configurable<std::string> fConfigMixingVariables{"cfgMixingVars", "", "Mixing configs separated by a comma, default no mixing"};
   o2::framework::Configurable<std::string> fConfigMixingVariablesJson{"cfgMixingVarsJSON", "", "Mixing configs in JSON format"};
   o2::framework::Configurable<bool> fConfigRunMixingAcrossTFs{"cfgRunMixingAcrossTFs", false, "If true, run event mixing using the MixingHandler which accumulates events across multiple TFs"};
+  o2::framework::Configurable<std::string> fConfigMixingNSelEdges{"cfgMixingNSelEdges", "", "Comma separated class edges in the number of selected pairing tracks per event, (e.g. 2,3,4,1000)"};
   // o2::framework::Configurable<std::string> fConfigAddEventMixingHistogram{"cfgAddEventMixingHistogram", "", "Comma separated list of histograms"};
   o2::framework::Configurable<std::string> fConfigAddSEPHistogram{"cfgAddSEPHistogram", "", "Comma separated list of histograms"};
   o2::framework::Configurable<std::string> fConfigAddJSONHistograms{"cfgAddJSONHistograms", "", "Histograms in JSON format"};
@@ -1566,6 +1590,7 @@ struct AnalysisSameEventPairing {
   int fNCutsMuon = 0;
   int fNPairCuts = 0;
   int fNPairPerEvent = 0;
+  std::vector<int> fMixNSelEdges;
 
   bool fEnableBarrelMixingHistos = false;
   bool fEnableBarrelHistos = false;
@@ -1583,8 +1608,11 @@ struct AnalysisSameEventPairing {
 
   void init(o2::framework::InitContext& context)
   {
-    fEnableBarrelHistos = context.mOptions.get<bool>("processAllSkimmed") || context.mOptions.get<bool>("processBarrelOnlySkimmed") || context.mOptions.get<bool>("processBarrelOnlyWithCollSkimmed") || context.mOptions.get<bool>("processBarrelOnlySkimmedNoCov") || context.mOptions.get<bool>("processBarrelOnlySkimmedNoCovWithMultExtra") || context.mOptions.get<bool>("processBarrelOnlyWithQvectorCentrSkimmedNoCov") || context.mOptions.get<bool>("processBarrelOnlyWithQvectorCentrSkimmed") || context.mOptions.get<bool>("processBarrelOnlyDiKaons") || context.mOptions.get<bool>("processBarrelOnlyDiProtons") || context.mOptions.get<bool>("processBarrelOnlySkimmedWithGlobalMult");
+    fEnableBarrelHistos = context.mOptions.get<bool>("processAllSkimmed") || context.mOptions.get<bool>("processBarrelOnlySkimmed") || context.mOptions.get<bool>("processBarrelOnlyWithCollSkimmed") || context.mOptions.get<bool>("processBarrelOnlySkimmedNoCov") || context.mOptions.get<bool>("processBarrelOnlySkimmedNoCovWithMultExtra") || context.mOptions.get<bool>("processBarrelOnlyWithQvectorCentrSkimmedNoCov") || context.mOptions.get<bool>("processBarrelOnlyWithQvectorCentrSkimmed") || context.mOptions.get<bool>("processBarrelOnlyWithQvectorCentrVtxCovSkimmed") || context.mOptions.get<bool>("processBarrelOnlyDiKaons") || context.mOptions.get<bool>("processBarrelOnlyDiProtons") || context.mOptions.get<bool>("processBarrelOnlySkimmedWithGlobalMult");
     fEnableBarrelMixingHistos = context.mOptions.get<bool>("processMixingAllSkimmed") || context.mOptions.get<bool>("processMixingBarrelSkimmed") || context.mOptions.get<bool>("processMixingBarrelSkimmedFlow") || context.mOptions.get<bool>("processMixingBarrelWithQvectorCentrSkimmedNoCov") || context.mOptions.get<bool>("processMixingBarrelSkimmedGlobalMult");
+    if (fEnableBarrelMixingHistos && fConfigRunMixingAcrossTFs) {
+      LOG(fatal) << "cfgRunMixingAcrossTFs is on together with an in-TF processMixing* function";
+    }
     fEnableBarrelMixingHistos |= fConfigRunMixingAcrossTFs;
     fEnableMuonHistos = context.mOptions.get<bool>("processAllSkimmed") || context.mOptions.get<bool>("processMuonOnlySkimmed") || context.mOptions.get<bool>("processMuonOnlySkimmedMultExtra") || context.mOptions.get<bool>("processMuonOnlySkimmedFlow") || context.mOptions.get<bool>("processMuonOnlyVertexingSkimmed");
     fEnableMuonMixingHistos = context.mOptions.get<bool>("processMixingAllSkimmed") || context.mOptions.get<bool>("processMixingMuonSkimmed") || context.mOptions.get<bool>("processMixingMuonSkimmedFlow");
@@ -1835,6 +1863,23 @@ struct AnalysisSameEventPairing {
       }
     }
 
+    fMixNSelEdges.clear();
+    if (!fConfigMixingNSelEdges.value.empty()) {
+      std::unique_ptr<TObjArray> edgeArr(TString(fConfigMixingNSelEdges.value).Tokenize(","));
+      for (int ie = 0; ie < edgeArr->GetEntries(); ++ie) {
+        const std::string edgeStr = dynamic_cast<TObjString*>(edgeArr->At(ie))->GetString().Data();
+        int edge = 0;
+        const auto [ptr, ec] = std::from_chars(edgeStr.data(), edgeStr.data() + edgeStr.size(), edge);
+        if (ec != std::errc() || ptr != edgeStr.data() + edgeStr.size()) {
+          LOG(fatal) << "Edges must be integers: '" << fConfigMixingNSelEdges.value << "'";
+        }
+        fMixNSelEdges.push_back(edge);
+      }
+      if (fMixNSelEdges.size() < 2 || !std::is_sorted(fMixNSelEdges.begin(), fMixNSelEdges.end()) || std::adjacent_find(fMixNSelEdges.begin(), fMixNSelEdges.end()) != fMixNSelEdges.end()) {
+        LOG(fatal) << "cfgMixingNSelEdges needs at least two edges in strictly increasing order: '" << fConfigMixingNSelEdges.value << "'";
+      }
+      LOGF(info, "Event mixing restricted to classes of selected pairing tracks per event: %s", fConfigMixingNSelEdges.value.c_str());
+    }
     if (fConfigRunMixingAcrossTFs) {
       if (fNCutsBarrel > MixingHandler::NMaxCuts) {
         LOGF(fatal, "Across-TF mixing supports at most %d barrel track-cut bits, got %d", MixingHandler::NMaxCuts, fNCutsBarrel);
@@ -2098,7 +2143,6 @@ struct AnalysisSameEventPairing {
     constexpr bool trackHasCov = ((TTrackFillMap & VarManager::ObjTypes::TrackCov) > 0 || (TTrackFillMap & VarManager::ObjTypes::ReducedTrackBarrelCov) > 0);
     // constexpr bool fillFlowReso = eventHasQvector || eventHasQvectorCentr;
     bool isSelectedBDT = false;
-    fNPairPerEvent = 0;
 
     for (auto const& event : events) {
       if (!event.isEventSelected_bit(0)) {
@@ -2122,6 +2166,16 @@ struct AnalysisSameEventPairing {
       if (groupedAssocs.size() == 0) {
         continue;
       }
+      if constexpr (TPairType == VarManager::kDecayToEE || TPairType == VarManager::kDecayToPiPi || TPairType == VarManager::kDecayToKchKch || TPairType == VarManager::kDecayToPrAPr) {
+        // number of tracks passing the pairing filter
+        int nSel = 0;
+        for (auto const& a : groupedAssocs) {
+          if (a.isBarrelSelected_raw() & a.isBarrelSelectedPrefilter_raw() & fTrackFilterMask) {
+            nSel++;
+          }
+        }
+        VarManager::fgValues[VarManager::kNSelTracksForPairing] = nSel;
+      }
 
       if (fConfigOptions.useFlowReso) {
         if (ResoFlowSP == nullptr || ResoFlowEP == nullptr) {
@@ -2132,7 +2186,16 @@ struct AnalysisSameEventPairing {
       int mixingCategory = -1;
       if (fConfigRunMixingAcrossTFs) {
         mixingCategory = fMixingHandler.FindEventCategory(dqtablereader_helpers::varValues());
+        // mix only events in the same class of cfgMixingNSelEdges
+        if (mixingCategory >= 0 && !fMixNSelEdges.empty()) {
+          const int nSel = static_cast<int>(VarManager::fgValues[VarManager::kNSelTracksForPairing]);
+          const int nSelClassIndex = static_cast<int>(std::upper_bound(fMixNSelEdges.begin(), fMixNSelEdges.end(), nSel) - fMixNSelEdges.begin()) - 1;
+          const int nNSelClasses = static_cast<int>(fMixNSelEdges.size()) - 1;
+          mixingCategory = (nSelClassIndex >= 0 && nSelClassIndex < nNSelClasses) ? mixingCategory * nNSelClasses + nSelClassIndex : -1;
+        }
       }
+
+      fNPairPerEvent = 0;
 
       bool isFirst = true;
       for (auto const& [a1, a2] : o2::soa::combinations(groupedAssocs, groupedAssocs)) {
@@ -2653,6 +2716,7 @@ struct AnalysisSameEventPairing {
         }
         // 2) run the mixing with the events in the pool corresponding to this event
         auto& pool = fMixingHandler.GetPool(mixingCategory);
+        int nMEPairs = 0;
         for (auto const& poolEvent : pool.GetEvents()) {
           for (auto const& t1 : mixingEvent.tracks1) {
             // run +- pairing
@@ -2663,6 +2727,7 @@ struct AnalysisSameEventPairing {
                 continue;
               }
               VarManager::FillPairMEAcrossTFs(t1, t2);
+              nMEPairs++;
               for (int icut = 0; icut < ncuts; icut++) {
                 if (mixedTwoTrackFilter & (static_cast<uint32_t>(1) << icut)) {
                   if (fConfigQA) {
@@ -2693,6 +2758,7 @@ struct AnalysisSameEventPairing {
                 continue;
               }
               VarManager::FillPairMEAcrossTFs(t1, t2);
+              nMEPairs++;
               for (int icut = 0; icut < ncuts; icut++) {
                 if (mixedTwoTrackFilter & (static_cast<uint32_t>(1) << icut)) {
                   if (fConfigQA) {
@@ -2711,6 +2777,7 @@ struct AnalysisSameEventPairing {
                 continue;
               }
               VarManager::FillPairMEAcrossTFs(t1, t2);
+              nMEPairs++;
               for (int icut = 0; icut < ncuts; icut++) {
                 if (mixedTwoTrackFilter & (static_cast<uint32_t>(1) << icut)) {
                   if (fConfigQA) {
@@ -2740,6 +2807,7 @@ struct AnalysisSameEventPairing {
                 continue;
               }
               VarManager::FillPairMEAcrossTFs(t1, t2);
+              nMEPairs++;
               for (int icut = 0; icut < ncuts; icut++) {
                 if (mixedTwoTrackFilter & (static_cast<uint32_t>(1) << icut)) {
                   if (fConfigQA) {
@@ -2749,6 +2817,10 @@ struct AnalysisSameEventPairing {
               }
             }
           }
+        }
+        if (fEnableBarrelMixingHistos && fConfigQA) {
+          VarManager::fgValues[VarManager::kNPairsPerEvent] = nMEPairs;
+          fHistMan->FillHistClass("PairingMEQA", dqtablereader_helpers::varValues());
         }
         // 3) add the current event to the pool
         pool.UpdatePool(mixingEvent, fMixingHandler.GetPoolDepth(), mixingEvent.filteringMask);
@@ -2942,27 +3014,72 @@ struct AnalysisSameEventPairing {
     events.bindExternalIndices(&assocs);
     int mixingDepth = fConfigMixingDepth.value;
     fAmbiguousPairs.clear();
+    if constexpr (TPairType == VarManager::kDecayToEE || TPairType == VarManager::kDecayToPiPi || TPairType == VarManager::kDecayToKchKch || TPairType == VarManager::kDecayToPrAPr) {
+      if (!fMixNSelEdges.empty()) {
+        // mix only events in the same class of cfgMixingNSelEdges
+        const int nNSelClasses = static_cast<int>(fMixNSelEdges.size()) - 1;
+        std::map<int, std::vector<decltype(events.begin())>> nSelPools;
+        // fill the pools with events
+        for (auto const& event : events) {
+          int nSel = 0;
+          for (auto const& a : assocs.sliceBy(preSlice, event.globalIndex())) {
+            if (a.isBarrelSelected_raw() & a.isBarrelSelectedPrefilter_raw() & fTrackFilterMask) {
+              nSel++;
+            }
+          }
+          const int nSelClassIndex = static_cast<int>(std::upper_bound(fMixNSelEdges.begin(), fMixNSelEdges.end(), nSel) - fMixNSelEdges.begin()) - 1;
+          if (nSelClassIndex >= 0 && nSelClassIndex < nNSelClasses && event.mixingHash() >= 0) {
+            nSelPools[event.mixingHash() * nNSelClasses + nSelClassIndex].push_back(event);
+          }
+        }
+        // same sliding window as selfCombinations
+        for (auto const& [key, poolEvents] : nSelPools) {
+          for (size_t i = 0; i < poolEvents.size(); i++) {
+            for (size_t j = i + 1; j < poolEvents.size() && j <= i + static_cast<size_t>(mixingDepth); j++) {
+              mixTwoEvents<TPairType, TEventFillMap>(poolEvents[i], poolEvents[j], events, assocs, tracks, preSlice);
+            }
+          }
+        }
+        return;
+      }
+    }
     for (auto const& [event1, event2] : selfCombinations(hashBin, mixingDepth, -1, events, events)) {
-      VarManager::ResetValues(0, VarManager::kNVars);
-      VarManager::FillEvent<TEventFillMap>(event1, dqtablereader_helpers::varValues());
+      mixTwoEvents<TPairType, TEventFillMap>(event1, event2, events, assocs, tracks, preSlice);
+    }
+  }
 
-      auto assocs1 = assocs.sliceBy(preSlice, event1.globalIndex());
-      assocs1.bindExternalIndices(&events);
+  // mix one pair of events
+  template <int TPairType, uint32_t TEventFillMap, typename TEvent, typename TEvents, typename TAssocs, typename TTracks>
+  void mixTwoEvents(TEvent const& event1, TEvent const& event2, TEvents& events, TAssocs const& assocs, TTracks const& tracks, o2::framework::Preslice<TAssocs>& preSlice)
+  {
+    VarManager::ResetValues(0, VarManager::kNVars);
+    VarManager::FillEvent<TEventFillMap>(event1, dqtablereader_helpers::varValues());
 
-      auto assocs2 = assocs.sliceBy(preSlice, event2.globalIndex());
-      assocs2.bindExternalIndices(&events);
+    auto assocs1 = assocs.sliceBy(preSlice, event1.globalIndex());
+    assocs1.bindExternalIndices(&events);
 
-      fNPairPerEvent = 0;
-      VarManager::FillTwoMixEvents<TEventFillMap>(event1, event2, assocs1, assocs2);
-      if (fConfigOptions.useFlowReso) {
-        VarManager::FillTwoMixEventsFlowResoFactor(ResoFlowSP, ResoFlowEP);
+    auto assocs2 = assocs.sliceBy(preSlice, event2.globalIndex());
+    assocs2.bindExternalIndices(&events);
+
+    fNPairPerEvent = 0;
+    VarManager::FillTwoMixEvents<TEventFillMap>(event1, event2, assocs1, assocs2);
+    if constexpr (TPairType == VarManager::kDecayToEE || TPairType == VarManager::kDecayToPiPi || TPairType == VarManager::kDecayToKchKch || TPairType == VarManager::kDecayToPrAPr) {
+      int nSel1 = 0; // number of tracks of event1 passing the pairing filter
+      for (auto const& a : assocs1) {
+        if (a.isBarrelSelected_raw() & a.isBarrelSelectedPrefilter_raw() & fTrackFilterMask) {
+          nSel1++;
+        }
       }
-      runMixedPairing<TPairType, TEventFillMap>(assocs1, assocs2, tracks, tracks);
-      VarManager::fgValues[VarManager::kNPairsPerEvent] = fNPairPerEvent;
-      if (fEnableBarrelMixingHistos && fConfigQA) {
-        fHistMan->FillHistClass("PairingMEQA", dqtablereader_helpers::varValues());
-      }
-    } // end event loop
+      VarManager::fgValues[VarManager::kNSelTracksForPairing] = nSel1;
+    }
+    if (fConfigOptions.useFlowReso) {
+      VarManager::FillTwoMixEventsFlowResoFactor(ResoFlowSP, ResoFlowEP);
+    }
+    runMixedPairing<TPairType, TEventFillMap>(assocs1, assocs2, tracks, tracks);
+    VarManager::fgValues[VarManager::kNPairsPerEvent] = fNPairPerEvent;
+    if (fEnableBarrelMixingHistos && fConfigQA) {
+      fHistMan->FillHistClass("PairingMEQA", dqtablereader_helpers::varValues());
+    }
   }
 
   template <bool TTwoProngFitter, int TPairType, uint32_t TEventFillMap, uint32_t TTrackFillMap, uint32_t TMuonFillMap, typename TEvents, typename TTrackAssocs, typename TTracks, typename TMuonAssocs, typename TMuons>
@@ -3271,6 +3388,14 @@ struct AnalysisSameEventPairing {
     runSameEventPairing<true, VarManager::kDecayToPrAPr, gkEventFillMapWithCov, gkTrackFillMapWithCov>(events, trackAssocsPerCollision, barrelAssocs, barrelTracks);
   }
 
+  // New process function with Qvector, Centrality and Vertex Covariance.
+  void processBarrelOnlyWithQvectorCentrVtxCovSkimmed(MyEventsVtxCovSelectedQvector const& events,
+                                                      o2::soa::Join<o2::aod::ReducedTracksAssoc, o2::aod::BarrelTrackCuts, o2::aod::Prefilter> const& barrelAssocs,
+                                                      MyBarrelTracksWithCovWithAmbiguities const& barrelTracks)
+  {
+    runSameEventPairing<true, VarManager::kDecayToEE, gkEventFillMapWithCovQvectorCentr, gkTrackFillMapWithCov>(events, trackAssocsPerCollision, barrelAssocs, barrelTracks);
+  }
+
   void processBarrelOnlySkimmedWithGlobalMult(MyEventsVtxCovGlobalMultSelected const& events,
                                               o2::soa::Join<o2::aod::ReducedTracksAssoc, o2::aod::BarrelTrackCuts, o2::aod::Prefilter> const& barrelAssocs,
                                               MyBarrelTracksWithCovWithAmbiguities const& barrelTracks)
@@ -3389,6 +3514,8 @@ struct AnalysisSameEventPairing {
   PROCESS_SWITCH(AnalysisSameEventPairing, processMixingMuonSkimmed, "Run muon type mixing pairing, with skimmed muons", false);
   PROCESS_SWITCH(AnalysisSameEventPairing, processMixingMuonSkimmedFlow, "Run muon type mixing pairing, with skimmed muons and flow", false);
   PROCESS_SWITCH(AnalysisSameEventPairing, processMixingElectronMuonSkimmed, "Run electron-muon mixing pairing, with skimmed tracks/muons", false);
+  // Process switch added for pairing with Qvector from central framework and event vertex covariance
+  PROCESS_SWITCH(AnalysisSameEventPairing, processBarrelOnlyWithQvectorCentrVtxCovSkimmed, "Run barrel only pairing, with skimmed tracks with covariances, event vertex covariance, and Qvector from central framework", false);
   PROCESS_SWITCH(AnalysisSameEventPairing, processDummy, "Dummy function, enabled only if none of the others are enabled", true);
 };
 
