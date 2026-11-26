@@ -108,6 +108,44 @@ double getDeltaPhi(double phiXic, double phiHadron)
   return RecoDecay::constrainAngle(phiHadron - phiXic, -PIHalf);
 }
 
+/// \return true if the reconstructed candidate is MC-matched to a true Xic decay of the analysed channel.
+/// The creators store flagMcMatchRec = sign * BIT(DecayType); Xic+ -> Xi pi pi includes the Xi(1530) channel, as in taskXicToXiPiPi
+template <bool IsXicPlus, typename CandType>
+bool isMatchedXicSignal(CandType const& candidate)
+{
+  auto const flag = std::abs(candidate.flagMcMatchRec());
+  if constexpr (IsXicPlus) {
+    return flag == static_cast<int>(BIT(o2::aod::hf_cand_xic_to_xi_pi_pi::DecayType::XicToXiPiPi)) ||
+           flag == static_cast<int>(BIT(o2::aod::hf_cand_xic_to_xi_pi_pi::DecayType::XicToXiResPiToXiPiPi));
+  } else {
+    return flag == static_cast<int>(BIT(o2::aod::hf_cand_xic0_omegac0::DecayType::XiczeroToXiPi));
+  }
+}
+
+/// \return true if the track with global index trackId is one of the decay tracks of the Xic candidate
+template <bool IsXicPlus, typename CandType>
+bool isXicDaughterTrack(CandType const& candidate, int64_t trackId)
+{
+  if (trackId == candidate.bachelorId() || trackId == candidate.posTrackId() || trackId == candidate.negTrackId()) { // Xi daughters
+    return true;
+  }
+  if constexpr (IsXicPlus) {
+    return trackId == candidate.pi0Id() || trackId == candidate.pi1Id(); // pions from the Xic+
+  } else {
+    return trackId == candidate.bachelorFromCharmBaryonId(); // pion from the Xic0
+  }
+}
+
+/// Sign of a generated associated particle for its signed pT: the electric charge for charged particles and
+/// particle/antiparticle (sign of the PDG code, e.g. Lambda/anti-Lambda) for neutral ones, as for reconstructed V0s
+int8_t getSignGenParticle(int pdgCode, double charge)
+{
+  if (charge != 0.) {
+    return charge > 0. ? 1 : -1;
+  }
+  return pdgCode > 0 ? ParticleType::Particle : ParticleType::AntiParticle;
+}
+
 // definition of ME variables
 using BinningType = ColumnBinningPolicy<aod::collision::PosZ, aod::mult::MultFT0M<aod::mult::MultFT0A, aod::mult::MultFT0C>>;
 using BinningTypeMcGen = ColumnBinningPolicy<aod::mccollision::PosZ, o2::aod::mult::MultMCFT0A>;
@@ -182,11 +220,7 @@ struct HfCorrelatorXicHadronsSelection {
         }
 
         if constexpr (IsMc) {
-          auto const mcFlag = std::abs(candidate.flagMcMatchRec());
-
-          bool isSignal = (mcFlag == static_cast<int>(o2::aod::hf_cand_xic_to_xi_pi_pi::DecayType::XicToXiPiPi)) || (mcFlag == static_cast<int>(BIT(aod::hf_cand_xic0_omegac0::DecayType::XiczeroToXiPi)));
-
-          if (!isSignal) {
+          if (!isMatchedXicSignal<IsXicPlus>(candidate)) {
             isCandFound = false;
             continue;
           }
@@ -333,6 +367,7 @@ struct HfCorrelatorXicHadrons {
   Produces<aod::TrkRecInfoLc> entryTrackRecoInfo;
   Produces<aod::Lc> entryCand;
   Produces<aod::Hadron> entryHadron;
+  Produces<aod::HadronPdg> entryHadronPdg;
   Produces<aod::LcHadronTrkPID> entryTrkPID;
   Produces<aod::CandChargePair> entryPairCandCharge;
   Produces<aod::CandCharge> entryCandCharge;
@@ -617,6 +652,18 @@ struct HfCorrelatorXicHadrons {
     }
   }
 
+  /// Fill the PDG code of the MC particle matched to an associated track (0 if not matched, i.e. fake track).
+  /// To be called once per entryTrkPID entry, so that HadronPdg can be joined with LcHadronTrkPID
+  template <typename TrackType>
+  void fillHadronPdg(TrackType const& track)
+  {
+    int pdgCodeAssoc = 0;
+    if (track.has_mcParticle()) {
+      pdgCodeAssoc = track.template mcParticle_as<aod::McParticles>().pdgCode();
+    }
+    entryHadronPdg(pdgCodeAssoc);
+  }
+
   template <typename TCollision, typename V0>
   bool selectionV0(TCollision const& collision, V0 const& candidate)
   {
@@ -739,6 +786,9 @@ struct HfCorrelatorXicHadrons {
       if (passV0Sel && std::abs(o2::constants::physics::MassLambda - v0.mLambda()) < cfgV0.cfgHypMassWindow && v0.alpha() > 0) {
         entryHadron(v0.mLambda(), trackV0Pos.eta(), trackV0Pos.pt() * trackV0Pos.sign(), 0, 0, v0.pt());
         entryTrkPID(trackV0Pos.tpcNSigmaPr(), trackV0Pos.tpcNSigmaKa(), trackV0Pos.tpcNSigmaPi(), trackV0Pos.tofNSigmaPr(), trackV0Pos.tofNSigmaKa(), trackV0Pos.tofNSigmaPi());
+        if constexpr (IsMc) {
+          fillHadronPdg(trackV0Pos);
+        }
 
         if (isSelectedV0Daughter(trackV0Pos, v0, kProton) && isSelectedV0Daughter(trackV0Neg, v0, kPiMinus)) {
           registry.fill(HIST("hV0Lambda"), v0.mLambda(), v0.pt(), trackV0Pos.pt());
@@ -763,6 +813,9 @@ struct HfCorrelatorXicHadrons {
       if (passV0Sel && std::abs(o2::constants::physics::MassLambda - v0.mAntiLambda()) < cfgV0.cfgHypMassWindow && v0.alpha() < 0) {
         entryHadron(v0.mAntiLambda(), trackV0Neg.eta(), trackV0Neg.pt() * trackV0Neg.sign(), 0, 0, v0.pt());
         entryTrkPID(trackV0Neg.tpcNSigmaPr(), trackV0Neg.tpcNSigmaKa(), trackV0Neg.tpcNSigmaPi(), trackV0Neg.tofNSigmaPr(), trackV0Neg.tofNSigmaKa(), trackV0Neg.tofNSigmaPi());
+        if constexpr (IsMc) {
+          fillHadronPdg(trackV0Neg);
+        }
 
         if (isSelectedV0Daughter(trackV0Neg, v0, kProtonBar) && isSelectedV0Daughter(trackV0Pos, v0, kPiPlus)) {
           registry.fill(HIST("hV0Lambda"), v0.mAntiLambda(), v0.pt(), trackV0Neg.pt());
@@ -988,7 +1041,7 @@ struct HfCorrelatorXicHadrons {
         isPrompt = candidate.originMcRec() == RecoDecay::OriginType::Prompt;
         isNonPrompt = candidate.originMcRec() == RecoDecay::OriginType::NonPrompt;
 
-        isSignal = IsXicPlus ? (std::abs(candidate.flagMcMatchRec()) == o2::aod::hf_cand_xic_to_xi_pi_pi::DecayType::XicToXiPiPi) : (std::abs(candidate.flagMcMatchRec()) == static_cast<int8_t>(BIT(aod::hf_cand_xic0_omegac0::DecayType::XiczeroToXiPi)));
+        isSignal = isMatchedXicSignal<IsXicPlus>(candidate);
 
         if (isSignal) {
           registry.fill(HIST("hPtCandSig"), absPtCand);
@@ -1037,12 +1090,17 @@ struct HfCorrelatorXicHadrons {
           continue;
         }
 
+        // A V0 built from a decay track of this Xic (e.g. the Lambda of its Xi) is not a correlation partner: the pair is removed,
+        // or kept with the auto-correlation flag if storeAutoCorrelationFlag. The V0 stays in the mixed-event (Hadron) table.
+        bool const isXicDaughterV0 = isXicDaughterTrack<IsXicPlus>(candidate, v0.posTrackId()) || isXicDaughterTrack<IsXicPlus>(candidate, v0.negTrackId());
+        bool const fillPair = selXicCand && (!isXicDaughterV0 || cfgXicCand.storeAutoCorrelationFlag);
+
         // Process Lambda (proton-pion)
         if (std::abs(o2::constants::physics::MassLambda - v0.mLambda()) < cfgV0.cfgHypMassWindow && v0.alpha() > 0) {
           if (isSelectedV0Daughter(trackV0Pos, v0, kProton) && isSelectedV0Daughter(trackV0Neg, v0, kPiMinus)) {
 
-            if (selXicCand) {
-              fillCorrelationTable<IsMcRec, V0LambdaType::Lambda>(cfgXicCand.fillTrkPID, v0, ptCand, etaCand, phiCand, outputMlXic, poolBin, correlationStatus, yCand, massCand, *mcParticles);
+            if (fillPair) {
+              fillCorrelationTable<IsMcRec, V0LambdaType::Lambda>(cfgXicCand.fillTrkPID, v0, ptCand, etaCand, phiCand, outputMlXic, poolBin, isXicDaughterV0, yCand, massCand, *mcParticles);
             }
 
             if (countCand == 1) {
@@ -1059,8 +1117,8 @@ struct HfCorrelatorXicHadrons {
         if (std::abs(o2::constants::physics::MassLambda - v0.mAntiLambda()) < cfgV0.cfgHypMassWindow && v0.alpha() < 0) {
           if (isSelectedV0Daughter(trackV0Neg, v0, kProtonBar) && isSelectedV0Daughter(trackV0Pos, v0, kPiPlus)) {
 
-            if (selXicCand) {
-              fillCorrelationTable<IsMcRec, V0LambdaType::AntiLambda>(cfgXicCand.fillTrkPID, v0, ptCand, etaCand, phiCand, outputMlXic, poolBin, correlationStatus, yCand, massCand, *mcParticles);
+            if (fillPair) {
+              fillCorrelationTable<IsMcRec, V0LambdaType::AntiLambda>(cfgXicCand.fillTrkPID, v0, ptCand, etaCand, phiCand, outputMlXic, poolBin, isXicDaughterV0, yCand, massCand, *mcParticles);
             }
 
             if (countCand == 1) {
@@ -1130,7 +1188,7 @@ struct HfCorrelatorXicHadrons {
     double ptCombined = -999.0;
     double yAssoc = -999.0;
     int signAssoc = 0;
-    auto pVec1 = RecoDecayPtEtaPhi::pVector(candPt, candEta, candPhi);
+    auto pVec1 = RecoDecayPtEtaPhi::pVector(std::abs(candPt), candEta, candPhi); // candPt is signed (pT x sign)
     double massPart2 = -999.0;
     std::array pVec2{assoc.px(), assoc.py(), assoc.pz()};
     std::array moms{pVec1, pVec2};
@@ -1168,7 +1226,7 @@ struct HfCorrelatorXicHadrons {
                         cent); // will be added later if required
     entryCandHadronPairY(yAssoc - yCand);
     entryCandHadronMlInfo(outMl[0], outMl[1]);
-    entryCandHadronRecoInfo(candMass, false);
+    entryCandHadronRecoInfo(candMass, IsMcRec && isSignal); // signal status: MC-matched Xic (always false in data)
 
     if constexpr (LambdaType == V0LambdaType::NotLambda) { // Regular track
       entryTrackRecoInfo(assoc.dcaXY(), assoc.dcaZ(), assoc.tpcNClsCrossedRows());
@@ -1188,9 +1246,9 @@ struct HfCorrelatorXicHadrons {
         entryCandHadronGenInfo(isPrompt, false, 0);
         registry.fill(HIST("hFakeTracksMcRec"), assoc.pt());
       }
-      registry.fill(HIST("hPtParticleAssocVsCandMcRec"), assoc.pt(), candPt);
+      registry.fill(HIST("hPtParticleAssocVsCandMcRec"), assoc.pt(), std::abs(candPt));
       if (isPhysicalPrimary) {
-        registry.fill(HIST("hPtPrimaryParticleAssocVsCandMcRec"), assoc.pt(), candPt);
+        registry.fill(HIST("hPtPrimaryParticleAssocVsCandMcRec"), assoc.pt(), std::abs(candPt));
       }
     }
   }
@@ -1295,7 +1353,7 @@ struct HfCorrelatorXicHadrons {
         isPrompt = candidate.originMcRec() == RecoDecay::OriginType::Prompt;
         isNonPrompt = candidate.originMcRec() == RecoDecay::OriginType::NonPrompt;
 
-        isSignal = std::abs(candidate.flagMcMatchRec()) == o2::aod::hf_cand_xic_to_xi_pi_pi::DecayType::XicToXiPiPi;
+        isSignal = isMatchedXicSignal<IsXicPlus>(candidate);
         // auto trackProng0 = candidate.template prong0_as<TrackType>();
         // auto trackProng1 = candidate.template prong1_as<TrackType>();
         if (cfgXicCand.calTrkEff && countCand == 1 && (isSignal || !cfgXicCand.calEffEventWithCand)) {
@@ -1339,13 +1397,7 @@ struct HfCorrelatorXicHadrons {
       // Correlation with hadrons
       for (const auto& track : tracks) {
 
-        isCandidateDaughter = (candidate.bachelorId() == track.globalIndex()) || (candidate.posTrackId() == track.globalIndex()) || (candidate.negTrackId() == track.globalIndex());
-
-        if constexpr (IsXicPlus) {
-          isCandidateDaughter = (candidate.pi0Id() == track.globalIndex()) || (candidate.pi1Id() == track.globalIndex()) || isCandidateDaughter;
-        } else {
-          isCandidateDaughter = (candidate.bachelorFromCharmBaryonId() == track.globalIndex()) || isCandidateDaughter;
-        }
+        isCandidateDaughter = isXicDaughterTrack<IsXicPlus>(candidate, track.globalIndex());
 
         if (isCandidateDaughter && !cfgXicCand.storeAutoCorrelationFlag) {
           continue;
@@ -1399,6 +1451,9 @@ struct HfCorrelatorXicHadrons {
             entryHadron(track.phi(), track.eta(), track.pt() * track.sign(), poolBin, gCollisionId, timeStamp);
             if (cfgXicCand.fillTrkPID) {
               entryTrkPID(track.tpcNSigmaPr(), track.tpcNSigmaKa(), track.tpcNSigmaPi(), track.tofNSigmaPr(), track.tofNSigmaKa(), track.tofNSigmaPi());
+              if constexpr (IsMcRec) {
+                fillHadronPdg(track);
+              }
             }
             registry.fill(HIST("hTracksBin"), poolBin);
           }
@@ -1470,6 +1525,7 @@ struct HfCorrelatorXicHadrons {
         if constexpr (IsMcRec) {
           isPrompt = candidate.originMcRec() == RecoDecay::OriginType::Prompt;
           isNonPrompt = candidate.originMcRec() == RecoDecay::OriginType::NonPrompt;
+          isSignal = isMatchedXicSignal<IsXicPlus>(candidate);
         }
 
         if (std::abs(yCand) > cfgXicCand.yCandMax) {
@@ -1504,11 +1560,11 @@ struct HfCorrelatorXicHadrons {
           }
         }
         if (isPrompt) {
-          registry.fill(HIST("hPtCandMcRecSigPrompt"), ptCand);
-          registry.fill(HIST("hPtVsMultiplicityMcRecPrompt"), ptCand, 0);
+          registry.fill(HIST("hPtCandMcRecSigPrompt"), std::abs(ptCand));
+          registry.fill(HIST("hPtVsMultiplicityMcRecPrompt"), std::abs(ptCand), 0);
         } else if (isNonPrompt) {
-          registry.fill(HIST("hPtCandMcRecSigNonPrompt"), ptCand);
-          registry.fill(HIST("hPtVsMultiplicityMcRecNonPrompt"), ptCand, 0);
+          registry.fill(HIST("hPtCandMcRecSigNonPrompt"), std::abs(ptCand));
+          registry.fill(HIST("hPtVsMultiplicityMcRecNonPrompt"), std::abs(ptCand), 0);
         }
       }
     }
@@ -1625,16 +1681,21 @@ struct HfCorrelatorXicHadrons {
           }
         }
 
-        if (std::find(prongsId.begin(), prongsId.end(), particleAssoc.globalIndex()) != prongsId.end()) {
+        // decay products of this Xic: its final-state daughters and its own Lambda (Xic -> Xi -> Lambda), as for reconstructed V0s
+        bool const isXicOwnLambda = std::abs(particleAssoc.pdgCode()) == kLambda0 && RecoDecay::getMother(mcParticles, particleAssoc, particle.pdgCode()) == particle.globalIndex();
+        if (isXicOwnLambda || std::find(prongsId.begin(), prongsId.end(), particleAssoc.globalIndex()) != prongsId.end()) {
           if (!cfgXicCand.storeAutoCorrelationFlag) {
             continue;
           }
           correlationStatus = true;
         }
 
+        auto const* pdgParticleAssoc = pdg->GetParticle(particleAssoc.pdgCode());
+        if (pdgParticleAssoc == nullptr) {
+          continue;
+        }
         int trackOrigin = RecoDecay::getCharmHadronOrigin(mcParticles, particleAssoc, true);
-        int8_t chargeAssoc = pdg->GetParticle(particleAssoc.pdgCode())->Charge();
-        chargeAssoc = chargeAssoc / std::abs(chargeAssoc);
+        int8_t const chargeAssoc = getSignGenParticle(particleAssoc.pdgCode(), pdgParticleAssoc->Charge());
         registry.fill(HIST("hPtParticleAssocMcGen"), particleAssoc.pt());
         float const cent = 100.0;
 
