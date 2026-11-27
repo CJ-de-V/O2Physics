@@ -16,3 +16,7 @@ o2physics_add_dpl_workflow(emc-cluster-step0
                     PUBLIC_LINK_LIBRARIES O2::Framework O2::EMCALBase O2::EMCALCalib O2Physics::AnalysisCore
                     COMPONENT_NAME AnalysisTutorial)
 
+o2physics_add_dpl_workflow(hons-data
+                    SOURCES honsdata.cxx
+                    PUBLIC_LINK_LIBRARIES O2::Framework O2Physics::AnalysisCore
+                    COMPONENT_NAME Analysis)
