@@ -13,17 +13,21 @@
 /// \brief Simple task for local MC-Troubleshooting
 /// \author C.J. de Villiers <cornelius.johannes.de.villiers@cern.ch>
 
+#include "PWGDQ/Core/MCSignalLibrary.h"
+
 #include "Common/DataModel/TrackSelectionTables.h"
 
 #include <Framework/AnalysisDataModel.h>
 #include <Framework/AnalysisTask.h>
 #include <Framework/EndOfStreamContext.h>
 #include <Framework/Expressions.h>
+#include <Framework/Logger.h>
 #include <Framework/runDataProcessing.h>
 
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -52,11 +56,40 @@ std::ofstream outputLog("decaylog.txt");
 
 struct myExampleTask {
   HistogramRegistry histos{"histos", {}, OutputObjHandlingPolicy::AnalysisObject};
+  Configurable<std::string> fConfigMCSignals{"cfgMCsignals", "", "Comma-separated list of MC signals"};
+  Configurable<std::string> fConfigMCSignalsJSON{"cfgMCsignalsJSON", "", "Additional list of MC signals via JSON"};
+  std::vector<MCSignal*> mcSignals;
   // std::unordered_map<int64_t, TrackRecord> bestTracks; // MC index -> best track data
 
   void init(InitContext const&)
   {
     muonTracksOut << "collisionID,trackID,mcID,eta,pt,p,phi,motherPDG,nClusters,trackType,pDca,chi2,chi2MatchMCHMID,rabs,isPrompt\n";
+
+    std::stringstream signalNames{fConfigMCSignals.value};
+    std::string signalName;
+    while (std::getline(signalNames, signalName, ',')) {
+      auto first = signalName.find_first_not_of(" \t");
+      if (first == std::string::npos) {
+        continue;
+      }
+      auto last = signalName.find_last_not_of(" \t");
+      signalName = signalName.substr(first, last - first + 1);
+      auto signal = o2::aod::dqmcsignals::GetMCSignal(signalName.c_str());
+      if (signal == nullptr) {
+        LOG(warning) << "Unknown MC signal '" << signalName << "'";
+        continue;
+      }
+      mcSignals.push_back(signal);
+    }
+
+    if (!fConfigMCSignalsJSON.value.empty()) {
+      auto jsonSignals = o2::aod::dqmcsignals::GetMCSignalsFromJSON(fConfigMCSignalsJSON.value.c_str());
+      for (auto signal : jsonSignals) {
+        if (signal != nullptr) {
+          mcSignals.push_back(signal);
+        }
+      }
+    }
   }
 
   using muonTracks = soa::Join<aod::FwdTracks, aod::McFwdTrackLabels>; // Forward tracks only
@@ -82,6 +115,12 @@ struct myExampleTask {
         continue;
       auto muID = mcParticle.globalIndex(); // check this later globalindex might be a bad idea
 
+      std::string signalBitmap;
+      signalBitmap.reserve(mcSignals.size());
+      for (auto* signal : mcSignals) {
+        signalBitmap.push_back(signal->CheckSignal(true, mcParticle) ? '1' : '0');
+      }
+
       // look for HF mother
       // if no mother skip
       if (!mcParticle.has_mothers()) {
@@ -95,10 +134,10 @@ struct myExampleTask {
       auto prevMcPart(muMother);              // Same as above... though god knows why we'd ever use this syntax
       auto mcPartPDG = abs(mcPart.pdgCode()); // parent
       int isPrompt = 1;
-      outputLog << "13"; //"==== Forward muon decay chain for id: " << muID << " : mu";
+      outputLog << signalBitmap << ", 13"; //"==== Forward muon decay chain for id: " << muID << " : mu";
 
-      // heavily buggy 2bfixed --- I think... yet it seems to work so well...
-      while (mcPart.has_mothers() && (abs(mcPart.getGenStatusCode()) > 80 || mcPart.getGenStatusCode() == 0)) {
+      // of questionable theoretical rigidity && (abs(mcPart.getGenStatusCode()) > 80 || mcPart.getGenStatusCode() == 0)
+      while (mcPart.has_mothers()) {
         outputLog << ", " << mcPartPDG;
         prevMcPart = *(mcPart);
         mcPart = *(mcPart.mothers_first_as<aod::McParticles>());
